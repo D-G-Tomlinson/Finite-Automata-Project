@@ -1,4 +1,4 @@
-# complexity-exercise-1-4
+# Finite-Automata-Project
 
 This program takes in 
 - A Deterministic Finite Automata (DFA) and a word and computes whether that word is accepted

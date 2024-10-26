@@ -9,7 +9,7 @@ use clap::Parser;
 struct Cli {
     /// Location of the file storing the DSA
     #[arg(short,long)]
-    dfa: Option<String>,
+    input: Option<String>,
 
     /// The word to be analysed
     #[arg(short, long, value_name = "FILE")]
@@ -25,8 +25,8 @@ fn main() {
     let cli = Cli::parse();
 
     let address:&str;
-    if let Some(dfa) = cli.dfa.as_deref() {
-	address=dfa;
+    if let Some(input) = cli.input.as_deref() {
+	address=input;
     } else {
 	println!("No DFA provided.");
 	return;
@@ -47,6 +47,17 @@ fn main() {
 	return;
     }
     let lines:Vec<&str> = contents.lines().collect();
+
+  
+    println!{"{}", match run_dfa(lines, word) {
+	None => "Error with the automaton or the word.",
+	Some(true) => "ACCEPT",
+	Some(false) => "REJECT"
+    }};
+    return;
+}
+
+fn run_dfa(lines:Vec<&str>, word:&str) -> Option<bool> {
     let alphabet = lines[0];
     let mut alphabet_map:HashMap<char,usize> = HashMap::new();
 
@@ -56,6 +67,7 @@ fn main() {
 	i = i + 1;
     }
 
+    let num_states = lines.len()-2;
     
     let mut current_state=lines[1].parse::<usize>().unwrap()-1;
 
@@ -64,9 +76,32 @@ fn main() {
     
     for state in &lines[2..] {
 	let split_state:Vec<&str> = state.split(",").collect();
-	let next_states:Vec<usize> = (&split_state[0..num_letters]).into_iter().map(|n| n.parse::<usize>().unwrap()-1).collect();
-	let accept: bool = split_state[num_letters].parse().unwrap();
-	let new_state =State{
+
+	if split_state.len() != num_letters+1 {
+	    return None;
+	}
+	
+	let mut next_states:Vec<usize> = Vec::new();
+	for ns in (&split_state[0..num_letters]).into_iter(){
+	    match ns.parse::<usize>() {
+		Ok(v) => {
+		    if v > 0 && v <= num_states {
+			next_states.push(v-1)
+		    } else {
+			return None
+		    }
+		},
+		Err(_) => return None
+	    }
+	}//.map(|n| n.parse::<usize>().unwrap()-1).collect();
+
+	let accept:bool;
+	match split_state[num_letters].parse() {
+	    Ok(a) => accept = a,
+	    Err(_) => return None
+	}
+	
+	let new_state = State{
 	    transitions: next_states,
 	    accepting: accept
 	}; 
@@ -74,15 +109,16 @@ fn main() {
     }
 
     for letter in word.chars() {
+
+	if !alphabet_map.contains_key(&letter) {
+	    return None
+	}	
 	let equivalent = alphabet_map[&letter];
 	let current_state_obj = &states[current_state];
 	let edges = &current_state_obj.transitions;
 	current_state = edges[equivalent];
     }
     println!{"Final state is {}",current_state}
-    println!{"{}", match states[current_state].accepting{
-	true => "ACCEPT",
-	false => "REJECT"
-    }};
-    return;
+    return Some(states[current_state].accepting)
+    
 }

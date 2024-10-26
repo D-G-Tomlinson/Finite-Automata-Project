@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 
-use clap::Parser;
+use clap::Parser; //allows me flexibility with reading commandline arguments
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -19,7 +19,7 @@ struct Cli {
     #[arg(short, long)]
     dfa_output: Option<String>,
 
-    /// Regular expression to be evaluated or converted
+    /// Regular expression to be evaluated or converted. This option is not currently implemented
     #[arg(short, long)]
     regex: Option<String>,
 }
@@ -35,8 +35,12 @@ enum InputType{
     REGEX
 }
 
+
+//Although some input validation is done, it is not comprehensive - this project is an exercise in regular langauge representation, conversion and computation, rather than data validation
 fn main() {
 
+    println!("Use the --help option (i.e. cargo run -- --help) to learn about possible options.");
+    
     let mut input_type = InputType::DFA; //doesn't really matter as long as it's not REGEX
     let cli = Cli::parse();
 
@@ -109,8 +113,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
     if let Some(in_word) = input_word {
 	word=in_word;
     } else {
-	println!("No word provided.");
-	return Err(format!("Nothing to do"));
+	return Err(format!("Nothing to do: No word provided."));
     }
     let word = word.as_str();
     
@@ -184,32 +187,10 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
     
 }
 
+#[derive(Clone)]
 struct NFAState {
     transitions:Vec<u64>,
     accepting:bool
-}
-fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
-
-    //graph exploration so recursion is necessary
-    fn recurse_eq(code:u64, states:&HashMap<u64,NFAState>, visited_in:u64) -> u64 {
-	let mut visited = visited_in;
-	let mut result = 0;
-	
-	let mut i:u64 = 1;
-	for _ in 1..64 {
-	    //identify the individual states in the given state set, as long as they've not been visited before
-	    if (i & code != 0) && (i & visited == 0) {
-		visited = visited | i;
-		result = result | i;
-		let jump_state_set = states[&i].transitions[0];
-		result = result | recurse_eq(jump_state_set,states,visited);
-	    }
-
-	    i = i << 1;
-	}
-	return result;
-    }
-    return recurse_eq(code,states,0);
 }
 
 struct NFA {
@@ -250,6 +231,10 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 
     if let Some(in_output) = output_option {
 	output = in_output;
+	let file_type = output.split('.').last().unwrap().to_uppercase();
+	if file_type != "DFA" {
+	    return Err(format!("Can only write to .dfa files"));
+	}
 	is_output = true;
     } else {
 	output = format!("");
@@ -272,8 +257,9 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	}
 	i = i+1;
     }
-
+    alphabet_hashmap.insert('e',0);
     let mut nfa_states = HashMap::<u64, NFAState>::new();
+    //this introduces a limit of 64 initial states, but that is fine for the small automata I'll be experimenting with.
     let start_state = lines[1].parse::<usize>().unwrap();
     let start_state: u64 = 1 << (start_state - 1);
 
@@ -282,7 +268,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	let comma_split:Vec<&str> = state.split(",").collect();
 	let num_parts = comma_split.len();
 
-	let mut next_states:Vec<u64> = vec![0;alphabet.len()];
+	let mut next_states:Vec<u64> = vec![0;alphabet.len() + 1];
 	
 	if num_parts > 1 {
 	    for transition in (&comma_split[0..num_parts-1]).into_iter(){
@@ -298,13 +284,13 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	    Ok(a) => accept = a,
 	    Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
 	}
-
+	//println!("Adding state {}",i);
 	nfa_states.insert(i, NFAState{
 	    transitions:next_states,
 	    accepting:accept
 	});
 	
-	i = i << 2; //we can represent each individual state n as 2 ^(n-1), and a set of multiple states (including singleton sets) as sums of these values.
+	i = i << 1; //we can represent each individual state n as 2 ^(n-1), and a set of multiple states (including singleton sets) as binary ORs of these values.
     }
 
     let initial_nfa = NFA {
@@ -314,6 +300,17 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     };
 
     let result_dfa:Vec<String> = nfa_to_dfa(initial_nfa);
+
+    if is_output {
+	if let Ok(mut file_ptr) = File::create(output){
+	    for i in 0..result_dfa.len() - 1 {
+		writeln!(file_ptr, "{}", result_dfa[i]).expect("Problem writing to the file");
+	    }
+	    write!(file_ptr, "{}", result_dfa[result_dfa.len() - 1]).expect("Problem writing to the file");
+	}
+
+    }
+    
     if is_word {
 	let mut str_result_dfa: Vec<&str> = Vec::new();
 	for i in 0..result_dfa.len() {
@@ -321,23 +318,123 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	}
 	return run_dfa(str_result_dfa, input_word);
     }
-
-    if is_output {
-	if let Ok(mut file_ptr) = File::create(output){
-	    for i in 0..result_dfa.len() {
-		writeln!(file_ptr, "{}", result_dfa[i]).expect("Problem writing to the file");
-	    }
-	    write!(file_ptr, "{}", result_dfa[result_dfa.len() - 1]).expect("Problem writing to the file");
-	}
-    }
+    return Err(format!("Finished without computation"));
     
-    return Err(format!("Unfinished"));
 }
 
 fn nfa_to_dfa(input:NFA) -> Vec<String> {
+    let starting_state_set:u64 = equivalence(input.starting,&input.states);
+    let alphabet = input.alphabet;
+    let states = input.states;
+    
     let mut result:Vec<String> = Vec::new();
+    result.push(alphabet.clone());
+    result.push(format!("1"));
 
+    let mut visited:HashMap<u64,NFAState> = HashMap::new();
+    let mut ordered_visited:Vec<u64> = Vec::new();
+    let mut frontier:Vec<u64> = Vec::new();
+
+    let mut old_to_new_identifier:HashMap<u64,usize> = HashMap::new();
+    let mut count = 1;
+    
+    frontier.push(starting_state_set);
+
+    let upperbound:usize = alphabet.len() + 1;
+    
+    while frontier.len() > 0 {
+	let consider = frontier[0]; //the first state-set to be considered will be the starting state-set
+
+	old_to_new_identifier.insert(consider, count);
+	ordered_visited.push(consider);
+	count = count + 1;
+	
+	let accepting = is_accepting(consider, &states);
+	let mut transitions:Vec<u64> = Vec::new();
+	for transition in 1..upperbound { //start at 1 as transition 0 is the jump option
+	    let result = get_next_states(consider,transition,&states);
+	    transitions.push(result);
+	    if !(visited.contains_key(&result) || frontier.contains(&result)) {
+		frontier.push(result);
+	    }
+	}
+	visited.insert(consider, NFAState{
+	    transitions,
+	    accepting
+	});
+	frontier.remove(0);
+    }
+    for i in 0..(count-1) {
+	let current_state = ordered_visited[i];
+	let mut value = String::new();
+	for t in &visited[&current_state].transitions { //in this case, the first transition is the first non-empty element of the alphabet
+	    let temp_string = format!("{},",old_to_new_identifier[&t]);
+	    value.push_str(&temp_string);
+	}
+	let temp_string = visited[&current_state].accepting.to_string();
+	value.push_str(&temp_string);
+	result.push(value);
+    }
+    return result
+}
+
+fn get_next_states(stateset:u64, letter:usize, states:&HashMap<u64, NFAState>) -> u64 { //only use this on equivalence sets of another state set, so do not need to cover jumps from the given stateset
+
+    if stateset == 0 {
+	return 0;
+    }
+    
+    let mut i:u64 = 1;
+    let mut result:u64 = 0;
+    
+    for _ in 1..64 {
+	if (stateset & i) != 0 {
+	    result = result | equivalence(states[&i].transitions[letter as usize], &states);
+	}
+	i = i << 1;
+    }
 
     return result;
 }
 
+fn is_accepting(stateset:u64, states:&HashMap<u64, NFAState>) -> bool { // stateset is an equivalence class, so we don't need to consider jumps
+
+    if stateset == 0 {
+	return false;
+    }
+    
+    let mut i:u64 = 1;
+    for _ in 1..64 {
+	if (stateset & i) != 0 {
+	    if states[&i].accepting == true {
+		return true;
+	    }
+	}
+	i = i << 1;
+    }
+    return false;
+}
+fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
+
+    //graph exploration so recursion is necessary
+    fn recurse_eq(code:u64, states:&HashMap<u64,NFAState>, visited_in:u64) -> u64 {
+	let mut visited = visited_in;
+	let mut result = 0;
+	
+	let mut i:u64 = 1;
+	for _ in 1..64 {
+	    //identify the individual states in the given state set, as long as they've not been visited before
+	    if (i & code != 0) && (i & visited == 0) {
+		visited = visited | i;
+		result = result | i;
+		//println!("Looking for {}", i);
+		let jump_state_set = states[&i].transitions[0];
+		result = result | recurse_eq(jump_state_set,states,visited);
+	    }
+
+	    i = i << 1;
+	}
+	return result;
+    }
+    return recurse_eq(code,states,0);
+}

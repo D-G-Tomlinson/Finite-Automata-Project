@@ -493,6 +493,9 @@ fn run_regex(regex_in:String, output_dfa_in:Option<String>, output_nfa_in:Option
     }
     let regex:Vec<InProgress> = regex.iter().map(|c| char_to_in_progress(*c)).collect();
 
+    let regex = in_progress_vec_to_regex(regex);
+    println!("{:?}",regex);
+    
     return Err(format!("Not finished yet"));
 }
 
@@ -500,8 +503,6 @@ fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {
     //valid characters are (,),|,+,?,*, and all letters other than e
     let valid_symbols = vec!['(',')','|','+','?','*'];
     let mut alphabet:Vec<char> = Vec::new();
-    let mut regex = regex.clone();
-
     let mut depth=0;
     for c in &regex {
 	if *c == 'e' {
@@ -527,27 +528,6 @@ fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {
     if depth != 0 {
 	return None;
     }
-
-    // simplify the expression
-    // ++ = +, +? = *, +* = * 
-    // ?+ = *, ?? = ?, ?* = * 
-    // *+ = *, *? = *, ** = *
-/* Due to brackets, this will need to be check later, so this step is unecessary
-    let unary_ops = vec!['+','?','*'];
-    let mut i = 0;
-    while i < regex.len() {
-	let c = regex[i];
-	if unary_ops.contains(&c) && unary_ops.contains(&regex[i+1]) {
-//	    println!("{} of len {}",i,regex.len());
-	    regex.remove(i);
-	    if regex[i] != c {
-		regex[i] = '*'
-	    }
-	} else {
-	    i = i + 1;
-	}
-    }
-    */
     return Some((regex, alphabet.iter().cloned().collect()));
 }
 
@@ -623,7 +603,7 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 		if i == 0 {
 		    input[0] = InProgress::Reg(REGEX::Empty);
 		} else if let InProgress::Reg(r) = &input[i-1] {
-		    input[i-1] = InProgress::Reg(REGEX::Concat((((Box::new(r.clone()))),Box::new(r.clone()))));
+		    input[i-1] = InProgress::Reg(REGEX::KleenePlus(Box::new(r.clone())));
 		    input.remove(i);
 		} else {
 		    input[i] = InProgress::Reg(REGEX::Empty);
@@ -633,7 +613,7 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 		if i == 0 {
 		    input[0] = InProgress::Reg(REGEX::Empty);
 		} else if let InProgress::Reg(r) = &input[i-1] {
-		    input[i-1] = InProgress::Reg(REGEX::Or((((Box::new(r.clone()))),Box::new(REGEX::Empty))));
+		    input[i-1] = InProgress::Reg(REGEX::QMark(Box::new(r.clone())));
 		    input.remove(i);
 		} else {
 		    input[i] = InProgress::Reg(REGEX::Empty);
@@ -643,10 +623,76 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 	}
     }
     
+    //now, all we're left with is InProgress::Regs and InProgress::Ors
+    i = 0;
+    while i < input.len() - 1 {
+	match &input[i] {
+	    InProgress::Reg(r1) => {
+		match &input[i + 1] {
+		    InProgress::Reg(r2) => {
+			input[i] = InProgress::Reg(REGEX::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
+			input.remove(i + 1);			
+		    },
+		    _ => i = i + 1 
+		}
+	    },
+	    _ => i = i + 1
+	}
+    }
+
+    //now just to deal with the Ors
+    i = 0;
+    while i < input.len() {
+	match &input[i] {
+	    InProgress::Or => {
+		let r1;
+		if i == 0 {
+		    r1 = REGEX::Empty;
+		} else if let InProgress::Reg(temp) = &input[i-1] {
+		    r1 = (*temp).clone();
+		    i = i - 1;
+		    input.remove(i);
+		} else {
+		    r1 = REGEX::Empty;//this will never be reached, as all other possible InProgress values have been removed
+		}
+
+		let r2;
+		if i == input.len() - 1 {
+		    r2 = REGEX::Empty;
+		} else if let InProgress::Reg(temp) = &input[i + 1] {
+		    r2 = (*temp).clone();
+		    input.remove(i + 1);
+		} else {
+		    r2 = REGEX::Empty;
+		}
+
+		let new_val = match r1 {
+		    REGEX::Empty => match r2 {
+			REGEX::Empty => REGEX::Empty,
+			r => REGEX::QMark(Box::new(r))
+		    },
+		    r1 => match r2 {
+			REGEX::Empty => REGEX::QMark(Box::new(r1)),
+			r2 => REGEX::Or((Box::new(r1),Box::new(r2)))
+		    }
+		};
+		input[i] = InProgress::Reg(new_val);
+	    },
+	    _ => i = i + 1
+	}
+    }
+
+    if input.len() != 1 {
+	println!("Big problem");
+    } else if let InProgress::Reg(r) = &input[0] {
+	return (*r).clone();
+    } else {
+	println!("Other problem");
+    }
     
     return REGEX::Empty;
 }
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 enum REGEX {
     Empty,
     Single(char),

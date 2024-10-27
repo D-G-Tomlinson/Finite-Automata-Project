@@ -15,13 +15,18 @@ struct Cli {
     #[arg(short, long)]
     word: Option<String>,
 
-    /// Location of the DFA file to write the converted input to
+    /// Location of the DFA file to write the converted input to, for regex or NFA input
     #[arg(short, long)]
     dfa_output: Option<String>,
 
-    /// Regular expression to be evaluated or converted. This option is not currently implemented
+    /// Regular expression to be evaluated or converted. The letter 'e' represents the empty word, not the literal character 'e'. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions
     #[arg(short, long)]
     regex: Option<String>,
+
+    /// Location of the DFA file to write the converted input to, for regex or NFA input
+    #[arg(short, long)]
+    nfa_output: Option<String>,
+
 }
 
 struct DFAState {
@@ -44,9 +49,9 @@ fn main() {
     let mut input_type = InputType::DFA; //doesn't really matter as long as it's not REGEX
     let cli = Cli::parse();
 
-    let regex:&str;
+    let mut regex:String = String::new();
     if let Some(in_regex) = cli.regex.as_deref() {
-	regex = in_regex;
+	regex = String::from(in_regex);
 	input_type = InputType::REGEX
     }
 
@@ -55,45 +60,43 @@ fn main() {
     let mut contents = String::new();
     let mut lines = Vec::<&str>::new();
     if let Some(input) = cli.input.as_deref() {
-		if input_type == InputType::REGEX {
-			println!("No input file for regex operations.");
-			return;
-		} else {
-			address=input;
-			
-			let file_type = address.split('.').last().unwrap().to_uppercase();
-			match file_type.as_str() {
-				"DFA" => input_type = InputType::DFA,
-				"NFA" => input_type = InputType::NFA,
-				_ => {
-						println!("File type is unsupported.");
-						return;
-					}
-			}
-			
-
-			match File::open(address) {
-				Ok(mut f) => _ = f.read_to_string(&mut contents),
-				Err(_) => {
-					println!("Cannot read file.");
-					return;
-				}
-			}
-			lines = contents.lines().collect();
+	if input_type == InputType::REGEX {
+	    println!("No input file for regex operations.");
+	    return;
+	} else {
+	    address=input;
+	    let file_type = address.split('.').last().unwrap().to_uppercase();
+	    match file_type.as_str() {
+		"DFA" => input_type = InputType::DFA,
+		"NFA" => input_type = InputType::NFA,
+		_ => {
+		    println!("File type is unsupported.");
+		    return;
 		}
+	    }
+	    match File::open(address) {
+		Ok(mut f) => _ = f.read_to_string(&mut contents),
+		Err(_) => {
+		    println!("Cannot read file.");
+		    return;
+		}
+	    }
+	    lines = contents.lines().collect();
+	}
     } else if input_type != InputType::REGEX {
 	println!("No automata or regex provided.");
 	return;
     }
-
-
     let result = match input_type {
 	InputType::DFA => run_dfa(lines, cli.word.as_deref().map(|s| s.to_string())),
 	InputType::NFA => run_nfa(lines,
 				  cli.word.as_deref().map(|s| s.to_string()),
 				  cli.dfa_output.as_deref().map(|s| s.to_string())
 				  ),
-	InputType::REGEX => Err(format!("Not implemented yet"))
+	InputType::REGEX => run_regex(regex,
+				      cli.dfa_output.as_deref().map(|s| s.to_string()),
+				      cli.nfa_output.as_deref().map(|s| s.to_string()),
+				      cli.word.as_deref().map(|s| s.to_string()))
     };
     
     println!("{}", match result {
@@ -175,7 +178,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
     for letter in word.chars() {
 
 	if !alphabet_map.contains_key(&letter) {
-	    return Err(format!("Letter in word is not in alphabet"));
+	    return Ok(false);//if a letter in the word is not in the alphabet, reject the word
 	}	
 	let equivalent = alphabet_map[&letter];
 	let current_state_obj = &states[current_state];
@@ -437,4 +440,229 @@ fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
 	return result;
     }
     return recurse_eq(code,states,0);
+}
+
+fn run_regex(regex_in:String, output_dfa_in:Option<String>, output_nfa_in:Option<String>, word:Option<String>) -> Result<bool, String> {
+    let is_word:bool;
+    //println!("{:?}",word);
+    if let Some(_) = word {
+	is_word = true;
+    } else {
+	is_word = false;
+    }
+
+
+    // the NFA to DFA step will validate this again, but it's useful to validate this here - if no valid output or word is provided the program doesn't need to waste time converting the regex to NFA
+    let is_output_dfa:bool;
+
+    if let Some(in_output) = output_dfa_in {
+	let file_type = in_output.split('.').last().unwrap().to_uppercase();
+	if file_type != "DFA" {
+	    return Err(format!("Can only DFA output write to .dfa files"));
+	}
+	is_output_dfa = true;
+    } else {
+	is_output_dfa = false;
+    }
+
+    let output_nfa;
+    let is_output_nfa:bool;
+
+    if let Some(in_output) = output_nfa_in {
+	output_nfa = in_output;
+	let file_type = output_nfa.split('.').last().unwrap().to_uppercase();
+	if file_type != "NFA" {
+	    return Err(format!("Can only NFA output write to .nfa files"));
+	}
+	is_output_nfa = true;
+    } else {
+	output_nfa = format!("");
+	is_output_nfa = false;
+    }
+
+    if !(is_output_dfa||is_word||is_output_nfa) {
+	return Err(format!("Nothing to do."));
+    }
+
+    let regex_in:Vec<char>=regex_in.chars().collect();
+
+    let (regex, alphabet): (Vec<char>, String);
+    match validate_regex(regex_in) {
+	None => return Err(format!("Invalid regex")),
+	Some((a,b)) => (regex,alphabet) = (a,b)
+    }
+    let regex:Vec<InProgress> = regex.iter().map(|c| char_to_in_progress(*c)).collect();
+
+    return Err(format!("Not finished yet"));
+}
+
+fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {
+    //valid characters are (,),|,+,?,*, and all letters other than e
+    let valid_symbols = vec!['(',')','|','+','?','*'];
+    let mut alphabet:Vec<char> = Vec::new();
+    let mut regex = regex.clone();
+
+    let mut depth=0;
+    for c in &regex {
+	if *c == 'e' {
+	    return None;
+	}
+	if *c == '(' {
+	    depth += 1;
+	} else if *c == ')' {
+	    depth -= 1;
+	}
+	if depth == -1 {
+	    return None;
+	}
+	/*
+	if !(*c >= 'a' && *c <= 'z'){
+	    return None;
+	}
+	*/
+	if !(valid_symbols.contains(c)||alphabet.contains(c)) {
+	    alphabet.push(*c);
+	}
+    }
+    if depth != 0 {
+	return None;
+    }
+
+    // simplify the expression
+    // ++ = +, +? = *, +* = * 
+    // ?+ = *, ?? = ?, ?* = * 
+    // *+ = *, *? = *, ** = *
+/* Due to brackets, this will need to be check later, so this step is unecessary
+    let unary_ops = vec!['+','?','*'];
+    let mut i = 0;
+    while i < regex.len() {
+	let c = regex[i];
+	if unary_ops.contains(&c) && unary_ops.contains(&regex[i+1]) {
+//	    println!("{} of len {}",i,regex.len());
+	    regex.remove(i);
+	    if regex[i] != c {
+		regex[i] = '*'
+	    }
+	} else {
+	    i = i + 1;
+	}
+    }
+    */
+    return Some((regex, alphabet.iter().cloned().collect()));
+}
+
+fn char_to_in_progress(c:char) -> InProgress {
+    match c {
+	'*' => InProgress::KStar,
+	'+' => InProgress::KPlus,
+	'?' => InProgress::QMark,
+	'|' => InProgress::Or,
+	'(' => InProgress::Open,
+	')' => InProgress::Close,
+	'e' => InProgress::Reg(REGEX::Empty),
+	other => InProgress::Reg(REGEX::Single(other))
+    }    
+}
+
+fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
+    if input.len() == 0 {
+	return REGEX::Empty;
+    }
+    if input.len() == 1 {
+	return match &input[0] {
+	    InProgress::Reg(r) =>  r.clone(),
+	    _ => REGEX::Empty//due to earlier checks, we know brackets match, so do not need to consider them here
+	};
+    }
+
+    let mut input = input.clone();
+
+    //brackets have priority
+    let mut i =0;
+    while i < input.len() {
+	match &input[i] {
+	    InProgress::Close => { //as this is the first closing bracket, there are no sub-brackets in it
+		let mut j = i - 1; //find start of the bracket
+		while j > 0 {
+		    match &input[j] {
+			InProgress::Open => {
+			    input.remove(j);
+			    let mut sub_bracket:Vec<InProgress> = Vec::new();
+			    for _ in j..(i-1) {
+				sub_bracket.push(input[j].clone());
+				input.remove(j);
+			    }
+			    input[j] = InProgress::Reg(in_progress_vec_to_regex(sub_bracket));
+			    i = j + 1;
+			    j = 0;
+			},
+			_ => j = j - 1
+		    }
+		}
+	    },
+	    _ => i = i + 1
+	}
+    }
+
+    //unary operators are next
+    i = 0;
+    while i < input.len() {
+	match &input[i] {
+	    InProgress::KStar => {
+		if i == 0 {
+		    input[0] = InProgress::Reg(REGEX::Empty);
+		    i = i + 1
+		} else if let InProgress::Reg(r) = &input[i-1] {
+		    input[i-1] = InProgress::Reg(REGEX::KleeneStar(Box::new(r.clone())));
+		    input.remove(i);
+		} else {
+		    input[i] = InProgress::Reg(REGEX::Empty);
+		}
+	    },
+	    InProgress::KPlus => {
+		if i == 0 {
+		    input[0] = InProgress::Reg(REGEX::Empty);
+		} else if let InProgress::Reg(r) = &input[i-1] {
+		    input[i-1] = InProgress::Reg(REGEX::Concat((((Box::new(r.clone()))),Box::new(r.clone()))));
+		    input.remove(i);
+		} else {
+		    input[i] = InProgress::Reg(REGEX::Empty);
+		}
+	    },
+	    InProgress::QMark => {
+		if i == 0 {
+		    input[0] = InProgress::Reg(REGEX::Empty);
+		} else if let InProgress::Reg(r) = &input[i-1] {
+		    input[i-1] = InProgress::Reg(REGEX::Or((((Box::new(r.clone()))),Box::new(REGEX::Empty))));
+		    input.remove(i);
+		} else {
+		    input[i] = InProgress::Reg(REGEX::Empty);
+		}
+	    },
+	    _ => i = i + 1
+	}
+    }
+    
+    
+    return REGEX::Empty;
+}
+#[derive(Clone)]
+enum REGEX {
+    Empty,
+    Single(char),
+    KleeneStar(Box<REGEX>),
+    KleenePlus(Box<REGEX>),
+    QMark(Box<REGEX>),
+    Concat((Box<REGEX>,Box<REGEX>)),
+    Or((Box<REGEX>,Box<REGEX>)),
+}
+#[derive(Clone)]
+enum InProgress {
+    Reg(REGEX),
+    KStar,
+    KPlus,
+    QMark,
+    Or,
+    Open,
+    Close
 }

@@ -19,6 +19,6 @@ This program takes in one of:
 
 For example the command
 
-`cargo run -- --regex '(a|b)*ab` --dfa-output Endab.dfa --nfa-output Endab.dfa`
+`cargo run -- --regex '(a|b)*ab' --dfa-output Endab.dfa --nfa-output Endab.dfa`
 
 Will convert the given regex (accepting all words containing only a and b and ending with ab) to an NFA and a DFA (equivalent to Exc1b.nfa). Note, due to the nature of the algorithm, the resultant NFA contains more states than necessary - it is not the simplest form.

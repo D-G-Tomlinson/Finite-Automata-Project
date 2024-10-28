@@ -16,3 +16,9 @@ This program takes in one of:
  - Second line is the starting state number (indexed from 1)
  - Lines 3 through m+2 contain a comma-seperated-list of arrows out of that state, in the format letter:next-state-number, followed by "true" or "false" depending on if the state is accepting
    - The number of letter:next-state-number pairs is unrestricted, as NFAs can have multiple arrows with the same letter from the same state, or no arrows at all. The letter e, representing a jump, is allowed
+
+For example the command
+
+`cargo run -- --regex '(a|b)*ab` --dfa-output Endab.dfa --nfa-output Endab.dfa`
+
+Will convert the given regex (accepting all words containing only a and b and ending with ab) to an NFA and a DFA (equivalent to Exc1b.nfa). Note, due to the nature of the algorithm, the resultant NFA contains more states than necessary - it is not the simplest form.

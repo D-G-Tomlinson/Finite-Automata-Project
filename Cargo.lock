@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "Finite_Automata_Project"
+version = "0.1.0"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -96,13 +103,6 @@ name = "colorchoice"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fd119d74b830634cea2a0f58bbd0d54540518a14397557951e79340abc28c0"
-
-[[package]]
-name = "complexity-exercise-1-4"
-version = "0.1.0"
-dependencies = [
- "clap",
-]
 
 [[package]]
 name = "heck"

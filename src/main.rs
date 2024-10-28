@@ -502,7 +502,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
     let regex:Vec<InProgress> = regex.iter().map(|c| char_to_in_progress(*c,&alphabet_hashmap)).collect();
 
     let regex = in_progress_vec_to_regex(regex);
-    println!("{:?}",regex);    
+    //println!("{:?}",regex);    
     let regex = regex_to_nfa(regex,alphabet.len()+1);
 
     let regex_nfa:Vec<String> = nfa_for_regex_to_nfa(regex,alphabet);
@@ -517,7 +517,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
 
     }
     
-    if is_word {
+    if is_word || is_output_dfa {
 	let mut str_result_nfa: Vec<&str> = Vec::new();
 	for i in 0..regex_nfa.len() {
 	    str_result_nfa.push(regex_nfa[i].as_str());
@@ -529,9 +529,9 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
 }
 
 fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {
-    //valid characters are (,),|,+,?,*, and all letters other than 'e' ':' or ','
-    let valid_symbols = vec!['(',')','|','+','?','*'];
-    let invalid_letters = vec!['e',':',','];
+    //valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
+    let valid_symbols = vec!['(',')','|','+','?','*','e'];//e can be considered a symbol rather than a character as it represents the empty set
+    let invalid_letters = vec![':',','];
     
     let mut alphabet:Vec<char> = Vec::new();
     let mut depth=0;
@@ -570,19 +570,19 @@ fn char_to_in_progress(c:char, hm:&HashMap<char,usize>) -> InProgress {
 	'|' => InProgress::Or,
 	'(' => InProgress::Open,
 	')' => InProgress::Close,
-	'e' => InProgress::Reg(REGEX::Empty),
-	other => InProgress::Reg(REGEX::Single(hm[&other]))
+	'e' => InProgress::Reg(Regex::Empty),
+	other => InProgress::Reg(Regex::Single(hm[&other]))
     }    
 }
 
-fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
+fn in_progress_vec_to_regex(input:Vec<InProgress>) -> Regex {
     if input.len() == 0 {
-	return REGEX::Empty;
+	return Regex::Empty;
     }
     if input.len() == 1 {
 	return match &input[0] {
 	    InProgress::Reg(r) =>  r.clone(),
-	    _ => REGEX::Empty//due to earlier checks, we know brackets match, so do not need to consider them here, and a single unary operator, or | on its own is equivalent to empty
+	    _ => Regex::Empty//due to earlier checks, we know brackets match, so do not need to consider them here, and a single unary operator, or | on its own is equivalent to empty
 	};
     }
 
@@ -599,7 +599,7 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 			InProgress::Open => {
 			    input.remove(j);
 			    if j == i - 1 {
-				input[j] = InProgress::Reg(REGEX::Empty);
+				input[j] = InProgress::Reg(Regex::Empty);
 			    } else {
 				let mut sub_bracket:Vec<InProgress> = Vec::new();
 			    
@@ -633,33 +633,33 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 	match &input[i] {
 	    InProgress::KStar => {
 		if i == 0 {
-		    input[0] = InProgress::Reg(REGEX::Empty);
+		    input[0] = InProgress::Reg(Regex::Empty);
 		    i = i + 1
 		} else if let InProgress::Reg(r) = &input[i-1] {
-		    input[i-1] = InProgress::Reg(REGEX::KleeneStar(Box::new(r.clone())));
+		    input[i-1] = InProgress::Reg(Regex::KleeneStar(Box::new(r.clone())));
 		    input.remove(i);
 		} else {
-		    input[i] = InProgress::Reg(REGEX::Empty);
+		    input[i] = InProgress::Reg(Regex::Empty);
 		}
 	    },
 	    InProgress::KPlus => {
 		if i == 0 {
-		    input[0] = InProgress::Reg(REGEX::Empty);
+		    input[0] = InProgress::Reg(Regex::Empty);
 		} else if let InProgress::Reg(r) = &input[i-1] {
-		    input[i-1] = InProgress::Reg(REGEX::KleenePlus(Box::new(r.clone())));
+		    input[i-1] = InProgress::Reg(Regex::KleenePlus(Box::new(r.clone())));
 		    input.remove(i);
 		} else {
-		    input[i] = InProgress::Reg(REGEX::Empty);
+		    input[i] = InProgress::Reg(Regex::Empty);
 		}
 	    },
 	    InProgress::QMark => {
 		if i == 0 {
-		    input[0] = InProgress::Reg(REGEX::Empty);
+		    input[0] = InProgress::Reg(Regex::Empty);
 		} else if let InProgress::Reg(r) = &input[i-1] {
-		    input[i-1] = InProgress::Reg(REGEX::QMark(Box::new(r.clone())));
+		    input[i-1] = InProgress::Reg(Regex::QMark(Box::new(r.clone())));
 		    input.remove(i);
 		} else {
-		    input[i] = InProgress::Reg(REGEX::Empty);
+		    input[i] = InProgress::Reg(Regex::Empty);
 		}
 	    },
 	    _ => i = i + 1
@@ -673,7 +673,7 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 	    InProgress::Reg(r1) => {
 		match &input[i + 1] {
 		    InProgress::Reg(r2) => {
-			input[i] = InProgress::Reg(REGEX::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
+			input[i] = InProgress::Reg(Regex::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
 			input.remove(i + 1);			
 		    },
 		    _ => i = i + 1 
@@ -690,33 +690,33 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
 	    InProgress::Or => {
 		let r1;
 		if i == 0 {
-		    r1 = REGEX::Empty;
+		    r1 = Regex::Empty;
 		} else if let InProgress::Reg(temp) = &input[i-1] {
 		    r1 = (*temp).clone();
 		    i = i - 1;
 		    input.remove(i);
 		} else {
-		    r1 = REGEX::Empty;//this will never be reached, as all other possible InProgress values have been removed
+		    r1 = Regex::Empty;//this will never be reached, as all other possible InProgress values have been removed
 		}
 
 		let r2;
 		if i == input.len() - 1 {
-		    r2 = REGEX::Empty;
+		    r2 = Regex::Empty;
 		} else if let InProgress::Reg(temp) = &input[i + 1] {
 		    r2 = (*temp).clone();
 		    input.remove(i + 1);
 		} else {
-		    r2 = REGEX::Empty;
+		    r2 = Regex::Empty;
 		}
 
 		let new_val = match r1 {
-		    REGEX::Empty => match r2 {
-			REGEX::Empty => REGEX::Empty,
-			r => REGEX::QMark(Box::new(r))
+		    Regex::Empty => match r2 {
+			Regex::Empty => Regex::Empty,
+			r => Regex::QMark(Box::new(r))
 		    },
 		    r1 => match r2 {
-			REGEX::Empty => REGEX::QMark(Box::new(r1)),
-			r2 => REGEX::Or((Box::new(r1),Box::new(r2)))
+			Regex::Empty => Regex::QMark(Box::new(r1)),
+			r2 => Regex::Or((Box::new(r1),Box::new(r2)))
 		    }
 		};
 		input[i] = InProgress::Reg(new_val);
@@ -726,31 +726,29 @@ fn in_progress_vec_to_regex(input:Vec<InProgress>) -> REGEX {
     }
 
     if input.len() != 1 {
-	println!("Big problem");
+	panic!("Regex parsing process finished with incorrect number of results");
     } else if let InProgress::Reg(r) = &input[0] {
 	return (*r).clone();
     } else {
-	println!("Other problem");
-    }
-    
-    return REGEX::Empty;
+	panic!("Regex parsing process finished without a regex");
+    }    
 }
 /*
-fn simplify_regex(mut regex: REGEX) -> REGEX {//this step isn't strictly necessary, but it should simplify the resultant Automata, which is useful with the 64 state limit in NFA.Ccan be done at a later stage of the project
+fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessary, but it should simplify the resultant Automata, which is useful with the 64 state limit in NFA.Ccan be done at a later stage of the project
     let mut changed = true;
     while changed {
 	changed = false;
 	match regex {
-	    REGEX::Empty => (),
-	    REGEX::Single(_) => (), //could put these together at the default case, but this nested match is complicated enough that I want each option addressed explicitly
-	    REGEX::KleeneStar(br) => {
+	    Regex::Empty => (),
+	    Regex::Single(_) => (), //could put these together at the default case, but this nested match is complicated enough that I want each option addressed explicitly
+	    Regex::KleeneStar(br) => {
 		match *br {
-		    REGEX::Empty => {
-			input = REGEX::Empty;
+		    Regex::Empty => {
+			input = Regex::Empty;
 			changed = true;
 		    },
-		    REGEX::Single(_) => (),
-		    REGEX::KleeneStar
+		    Regex::Single(_) => (),
+		    Regex::KleeneStar
 		    
 		} 
 	    }
@@ -760,15 +758,15 @@ fn simplify_regex(mut regex: REGEX) -> REGEX {//this step isn't strictly necessa
 }
 */
 
-fn regex_to_nfa(r:REGEX,a:usize) -> NFAForRegex {
+fn regex_to_nfa(r:Regex,a:usize) -> NFAForRegex {
     match r {
-	REGEX::Empty => get_accept_e(a),
-	REGEX::Single(i) => get_accept_single(i,a),
-	REGEX::KleeneStar(r) => get_kstar(*r, a),
-	REGEX::KleenePlus(r) => get_concat((*r).clone(),REGEX::KleeneStar(Box::new(*r)),a),
-	REGEX::QMark(r) => get_or(REGEX::Empty,*r,a),
-	REGEX::Concat((r1,r2)) => get_concat(*r1, *r2,a),
-	REGEX::Or((r1, r2)) => get_or(*r1,*r2,a)
+	Regex::Empty => get_accept_e(a),
+	Regex::Single(i) => get_accept_single(i,a),
+	Regex::KleeneStar(r) => get_kstar(*r, a),
+	Regex::KleenePlus(r) => get_concat((*r).clone(),Regex::KleeneStar(Box::new(*r)),a),
+	Regex::QMark(r) => get_or(Regex::Empty,*r,a),
+	Regex::Concat((r1,r2)) => get_concat(*r1, *r2,a),
+	Regex::Or((r1, r2)) => get_or(*r1,*r2,a)
     }
 }
 
@@ -810,7 +808,7 @@ fn get_accept_single(i:usize,alphabet_len:usize) -> NFAForRegex {
     }
 }
 
-fn get_kstar(r:REGEX, alphabet_len:usize ) -> NFAForRegex {
+fn get_kstar(r:Regex, alphabet_len:usize ) -> NFAForRegex {
     let mut sub =  regex_to_nfa(r,alphabet_len);
     let start = sub.starting;
     let len = sub.states.len();
@@ -830,7 +828,7 @@ fn get_kstar(r:REGEX, alphabet_len:usize ) -> NFAForRegex {
     return sub;
 }
 
-fn get_concat(r1:REGEX, r2:REGEX, alphabet_len:usize) -> NFAForRegex {
+fn get_concat(r1:Regex, r2:Regex, alphabet_len:usize) -> NFAForRegex {
     let mut r1 = regex_to_nfa(r1,alphabet_len);
     let mut r2 = regex_to_nfa(r2, alphabet_len);
 
@@ -855,7 +853,7 @@ fn get_concat(r1:REGEX, r2:REGEX, alphabet_len:usize) -> NFAForRegex {
     return r1;
 }
 
-fn get_or(r1:REGEX, r2:REGEX, alphabet_len:usize) -> NFAForRegex {
+fn get_or(r1:Regex, r2:Regex, alphabet_len:usize) -> NFAForRegex {
     let mut r1 = regex_to_nfa(r1,alphabet_len);
     let mut r2 = regex_to_nfa(r2, alphabet_len);
 
@@ -906,18 +904,18 @@ fn nfa_for_regex_to_nfa(regex:NFAForRegex,alphabet:String) -> Vec<String> {
 }
 
 #[derive(Clone,Debug)]
-enum REGEX {
+enum Regex {
     Empty,
     Single(usize),
-    KleeneStar(Box<REGEX>),
-    KleenePlus(Box<REGEX>),
-    QMark(Box<REGEX>),
-    Concat((Box<REGEX>,Box<REGEX>)),
-    Or((Box<REGEX>,Box<REGEX>)),
+    KleeneStar(Box<Regex>),
+    KleenePlus(Box<Regex>),
+    QMark(Box<Regex>),
+    Concat((Box<Regex>,Box<Regex>)),
+    Or((Box<Regex>,Box<Regex>)),
 }
 #[derive(Clone,Debug)]
 enum InProgress {
-    Reg(REGEX),
+    Reg(Regex),
     KStar,
     KPlus,
     QMark,

@@ -40,6 +40,12 @@ enum InputType{
     REGEX
 }
 
+enum Rslt {
+    Acc,//the word is accepted
+    Rej,//the word is rejected
+    Nop,//no word is provided "no operation performed"
+    Err(String)
+}
 
 //Although some input validation is done, it is not comprehensive - this project is an exercise in regular langauge representation, conversion and computation, rather than data validation
 fn main() {
@@ -87,7 +93,7 @@ fn main() {
 	println!("No automata or regex provided.");
 	return;
     }
-    let result = match input_type {
+    let result:Rslt = match input_type {
 	InputType::DFA => run_dfa(lines, cli.word.as_deref().map(|s| s.to_string())),
 	InputType::NFA => run_nfa(lines,
 				  cli.word.as_deref().map(|s| s.to_string()),
@@ -100,23 +106,24 @@ fn main() {
     };
     
     println!("{}", match result {
-	Err(e) => e,
-	Ok(true) => format!("ACCEPT"),
-	Ok(false) => format!("REJECT")
+	Rslt::Err(e) => e,
+	Rslt::Acc => format!("ACCEPT"),
+	Rslt::Rej => format!("REJECT"),
+	Rslt::Nop => format!("No word provided, program finished without computation")
     });
     return;
 }
 
-fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
+fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Rslt {
    
     if lines.len()<3 {
-	return Err(format!("Input file is too short"));
+	return Rslt::Err(format!("Input file is too short"));
     }
     let word:String;
     if let Some(in_word) = input_word {
 	word=in_word;
     } else {
-	return Err(format!("Nothing to do: No word provided."));
+	return Rslt::Nop;
     }
     let word = word.as_str();
     
@@ -127,7 +134,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
     for letter in alphabet.chars() {
 
 	if letter == 'e' {
-	    return Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
+	    return Rslt::Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
 	}
 	
 	alphabet_map.insert(letter,i);
@@ -145,7 +152,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
 	let split_state:Vec<&str> = state.split(",").collect();
 
 	if split_state.len() != num_letters+1 {
-	    return Err(format!("Invalid number of elements on line"));
+	    return Rslt::Err(format!("Invalid number of elements on line"));
 	}
 	
 	let mut next_states:Vec<usize> = Vec::new();
@@ -155,17 +162,17 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
 		    if v >= 1 && v <= num_states {
 			next_states.push(v-1)
 		    } else {
-			return Err(format!("Value of next state is outside of the bounds of possible states"));
+			return Rslt::Err(format!("Value of next state is outside of the bounds of possible states"));
 		    }
 		},
-		Err(_) => return Err(format!("Value for next state is not a valid number")),
+		Err(_) => return Rslt::Err(format!("Value for next state is not a valid number")),
 	    }
 	}//.map(|n| n.parse::<usize>().unwrap()-1).collect();
 
 	let accept:bool;
 	match split_state[num_letters].parse() {
 	    Ok(a) => accept = a,
-	    Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
+	    Err(_) => return Rslt::Err(format!("Poorly formatted accepting/not accepting value.")),
 	}
 	
 	let new_state = DFAState{
@@ -178,7 +185,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
     for letter in word.chars() {
 
 	if !alphabet_map.contains_key(&letter) {
-	    return Ok(false);//if a letter in the word is not in the alphabet, reject the word
+	    return Rslt::Rej;//if a letter in the word is not in the alphabet, reject the word
 	}	
 	let equivalent = alphabet_map[&letter];
 	let current_state_obj = &states[current_state];
@@ -186,7 +193,10 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Result<bool,String> {
 	current_state = edges[equivalent];
     }
 //    println!{"Final state is {}",current_state}
-    return Ok(states[current_state].accepting)
+    return match states[current_state].accepting {
+	true => Rslt::Acc,
+	false => Rslt::Rej
+    }
     
 }
 
@@ -217,9 +227,9 @@ fn code_to_list(input:u64) -> Vec<u64> {
 */
 
 
-fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<String>) -> Result<bool,String> {
+fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<String>) -> Rslt {
     if lines.len()<3 {
-	return Err(format!("Input file is too short"));
+	return Rslt::Err(format!("Input file is too short"));
     }
     let is_word:bool;
 
@@ -236,7 +246,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	output = in_output;
 	let file_type = output.split('.').last().unwrap().to_uppercase();
 	if file_type != "DFA" {
-	    return Err(format!("Can only write to .dfa files"));
+	    return Rslt::Err(format!("Can only write to .dfa files"));
 	}
 	is_output = true;
     } else {
@@ -245,7 +255,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     }
 
     if !(is_output||is_word) {
-	return Err(format!("Nothing to do."));
+	return Rslt::Nop;
     }
 
     let alphabet_string = lines[0];
@@ -256,7 +266,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	if *c != 'e' {
 	    alphabet_hashmap.insert(*c,i);
 	} else {
-	    return Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
+	    return Rslt::Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
 	}
 	i = i+1;
     }
@@ -285,7 +295,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	let accept:bool;
 	match comma_split[num_parts - 1].parse() {
 	    Ok(a) => accept = a,
-	    Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
+	    Err(_) => return Rslt::Err(format!("Poorly formatted accepting/not accepting value.")),
 	}
 	//println!("Adding state {}",i);
 	nfa_states.insert(i, NFAState{
@@ -321,7 +331,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	}
 	return run_dfa(str_result_dfa, input_word);
     }
-    return Err(format!("Finished without computation"));
+    return Rslt::Err(format!("Finished without computation"));
     
 }
 
@@ -442,7 +452,7 @@ fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
     return recurse_eq(code,states,0);
 }
 
-fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, word:Option<String>) -> Result<bool, String> {
+fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, word:Option<String>) -> Rslt {
     let is_word:bool;
     //println!("{:?}",word);
     if let Some(_) = word {
@@ -458,7 +468,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
     if let Some(ref in_output) = output_dfa {
 	let file_type = in_output.split('.').last().unwrap().to_uppercase();
 	if file_type != "DFA" {
-	    return Err(format!("Can only DFA output write to .dfa files"));
+	    return Rslt::Err(format!("Can only DFA output write to .dfa files"));
 	}
 	is_output_dfa = true;
     } else {
@@ -472,7 +482,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
 	output_nfa = in_output;
 	let file_type = output_nfa.split('.').last().unwrap().to_uppercase();
 	if file_type != "NFA" {
-	    return Err(format!("Can only NFA output write to .nfa files"));
+	    return Rslt::Err(format!("Can only NFA output write to .nfa files"));
 	}
 	is_output_nfa = true;
     } else {
@@ -481,14 +491,14 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
     }
 
     if !(is_output_dfa||is_word||is_output_nfa) {
-	return Err(format!("Nothing to do."));
+	return Rslt::Nop;
     }
 
     let regex_in:Vec<char>=regex_in.chars().collect();
 
     let (regex, alphabet): (Vec<char>, String);
     match validate_regex(regex_in) {
-	None => return Err(format!("Invalid regex")),
+	None => return Rslt::Err(format!("Invalid regex")),
 	Some((a,b)) => (regex,alphabet) = (a,b)
     }
     let collected_alphabet:Vec<char> = alphabet.chars().collect();
@@ -525,7 +535,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
 	return run_nfa(str_result_nfa,word,output_dfa);
     }
     
-    return Err(format!("Finished without computation"));
+    return Rslt::Err(format!("Finished without computation"));
 }
 
 fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {

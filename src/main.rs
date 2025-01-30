@@ -44,7 +44,8 @@ enum Rslt {
     Acc,//the word is accepted
     Rej,//the word is rejected
     Nop,//no word is provided "no operation performed"
-    Err(String)
+    Notodo, //nothing to do, no word or output file provided
+    Err(String) // some error occured, due to invalid input
 }
 
 //Although some input validation is done, it is not comprehensive - this project is an exercise in regular langauge representation, conversion and computation, rather than data validation
@@ -109,7 +110,8 @@ fn main() {
 	Rslt::Err(e) => e,
 	Rslt::Acc => format!("ACCEPT"),
 	Rslt::Rej => format!("REJECT"),
-	Rslt::Nop => format!("No word provided, program finished without computation")
+	Rslt::Nop => format!("No word provided, program finished without computation"),
+	Rslt::Notodo => format!("No word or output file provided, nothing to do.")
     });
     return;
 }
@@ -123,7 +125,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Rslt {
     if let Some(in_word) = input_word {
 	word=in_word;
     } else {
-	return Rslt::Nop;
+	return Rslt::Notodo;
     }
     let word = word.as_str();
     
@@ -131,12 +133,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Rslt {
     let mut alphabet_map:HashMap<char,usize> = HashMap::new();
 
     let mut i:usize = 0;
-    for letter in alphabet.chars() {
-
-	if letter == 'e' {
-	    return Rslt::Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
-	}
-	
+    for letter in alphabet.chars() {	
 	alphabet_map.insert(letter,i);
 	i = i + 1;
     }
@@ -255,7 +252,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     }
 
     if !(is_output||is_word) {
-	return Rslt::Nop;
+	return Rslt::Notodo;
     }
 
     let alphabet_string = lines[0];
@@ -263,16 +260,12 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     let mut alphabet_hashmap = HashMap::<char,u32>::new();
     let mut i = 1;
     for c in &alphabet {
-	if *c != 'e' {
-	    alphabet_hashmap.insert(*c,i);
-	} else {
-	    return Rslt::Err(format!("To avoid confusion with the empty word, the letter e cannot be part of the alphabet"));
-	}
+	alphabet_hashmap.insert(*c,i);
 	i = i+1;
     }
-    alphabet_hashmap.insert('e',0);
     let mut nfa_states = HashMap::<u64, NFAState>::new();
     //this introduces a limit of 64 initial states, but that is fine for the small automata I'll be experimenting with.
+    //will rework this system in a later update
     let start_state = lines[1].parse::<usize>().unwrap();
     let start_state: u64 = 1 << (start_state - 1);
 
@@ -286,9 +279,18 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	if num_parts > 1 {
 	    for transition in (&comma_split[0..num_parts-1]).into_iter(){
 		let parts:Vec<&str> = transition.split(":").collect();
-		let letter:char = parts[0].chars().next().unwrap();
+//		println!{"{:?}",parts[0].chars()};
+//		let letter:char = parts[0].chars().next().unwrap();
+
+		let chars:Vec<char> = parts[0].chars().collect();
+		let transition_num:usize = match chars.len() {
+		    0 => 0,
+		    1 => alphabet_hashmap[&chars[0]] as usize,
+		    _ => return Rslt::Err(format!("Each transition has one letter, not multiple"))
+		};
+		
 		let value:u64 = parts[1].parse().unwrap();
-		next_states[alphabet_hashmap[&letter] as usize] = next_states[alphabet_hashmap[&letter] as usize] | (1 << (value-1))
+		next_states[transition_num] = next_states[transition_num] | (1 << (value-1))
 	    }
 	}
 
@@ -331,7 +333,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	}
 	return run_dfa(str_result_dfa, input_word);
     }
-    return Rslt::Err(format!("Finished without computation"));
+    return Rslt::Nop;
     
 }
 
@@ -491,7 +493,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
     }
 
     if !(is_output_dfa||is_word||is_output_nfa) {
-	return Rslt::Nop;
+	return Rslt::Notodo;
     }
 
     let regex_in:Vec<char>=regex_in.chars().collect();

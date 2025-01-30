@@ -19,7 +19,7 @@ struct Cli {
     #[arg(short, long)]
     dfa_output: Option<String>,
 
-    /// Regular expression to be evaluated or converted. The letter 'e' represents the empty word, not the literal character 'e'. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions
+    /// Regular expression to be evaluated or converted. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions
     #[arg(short, long)]
     regex: Option<String>,
 
@@ -263,6 +263,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	alphabet_hashmap.insert(*c,i);
 	i = i+1;
     }
+//    println!("Alphabet is {alphabet_hashmap:?}");
     let mut nfa_states = HashMap::<u64, NFAState>::new();
     //this introduces a limit of 64 initial states, but that is fine for the small automata I'll be experimenting with.
     //will rework this system in a later update
@@ -537,12 +538,12 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
 	return run_nfa(str_result_nfa,word,output_dfa);
     }
     
-    return Rslt::Err(format!("Finished without computation"));
+    return Rslt::Nop;
 }
 
 fn validate_regex(regex:Vec<char>) -> Option<(Vec<char>,String)> {
     //valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
-    let valid_symbols = vec!['(',')','|','+','?','*','e'];//e can be considered a symbol rather than a character as it represents the empty set
+    let valid_symbols = vec!['(',')','|','+','?','*'];
     let invalid_letters = vec![':',','];
     
     let mut alphabet:Vec<char> = Vec::new();
@@ -582,7 +583,6 @@ fn char_to_in_progress(c:char, hm:&HashMap<char,usize>) -> InProgress {
 	'|' => InProgress::Or,
 	'(' => InProgress::Open,
 	')' => InProgress::Close,
-	'e' => InProgress::Reg(Regex::Empty),
 	other => InProgress::Reg(Regex::Single(hm[&other]))
     }    
 }
@@ -781,12 +781,12 @@ fn regex_to_nfa(r:Regex,a:usize) -> NFAForRegex {
 	Regex::Or((r1, r2)) => get_or(*r1,*r2,a)
     }
 }
-
+#[derive(Debug)]
 struct NFAStateForRegex {
     transitions:Vec<Vec<usize>>,
     accepting:bool
 }
-
+#[derive(Debug)]
 struct NFAForRegex {
     states:Vec<NFAStateForRegex>,
     starting:usize
@@ -895,16 +895,20 @@ fn get_or(r1:Regex, r2:Regex, alphabet_len:usize) -> NFAForRegex {
 fn nfa_for_regex_to_nfa(regex:NFAForRegex,alphabet:String) -> Vec<String> {
     let mut result:Vec<String> = Vec::new();
     result.push(alphabet.clone());    
-    let mut final_alphabet = format!("e");
-    final_alphabet.push_str(&alphabet);
-    let alphabet:Vec<char> = final_alphabet.chars().collect();
+    let alphabet:Vec<char> = alphabet.chars().collect();
 
     result.push((regex.starting + 1).to_string());
 
     for state in regex.states {
+	println!("State is {state:?}");
 	let mut line = String::new();
+	//
+	for i in &state.transitions[0] {
+	    line.push_str(&format!(":{},",i+1));
+	}
+	
 	for t in 0..alphabet.len() {
-	    for i in &state.transitions[t] {
+	    for i in &state.transitions[t+1] {
 		line.push_str(&format!("{}:{},",alphabet[t],i+1));
 	    }
 	}

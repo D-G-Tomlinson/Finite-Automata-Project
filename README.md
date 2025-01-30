@@ -7,15 +7,15 @@ This program takes in one of:
   - A word to be accepted or rejected by the NFA
  
  The structure of a .dfa file with m states is:
- - First line is the alphabet, the letter e is not allowed
+ - First line is the alphabet
  - Second line is the starting state number (indexed from 1)
  - Lines 3 through m+2 contain a comma-seperated-list of the state (indexed from 1) reached from this state, by the corresponding letter of the alphabet, followed by "true" or "false" depending on if the state is accepting
  
  The structure of a .nfa file with m states is
- - First line is the alphabet, the letter e is not allowed
+ - First line is the alphabet
  - Second line is the starting state number (indexed from 1)
  - Lines 3 through m+2 contain a comma-seperated-list of arrows out of that state, in the format letter:next-state-number, followed by "true" or "false" depending on if the state is accepting
-   - The number of letter:next-state-number pairs is unrestricted, as NFAs can have multiple arrows with the same letter from the same state, or no arrows at all. The letter e, representing a jump, is allowed
+   - The number of letter:next-state-number pairs is unrestricted, as NFAs can have multiple arrows with the same letter from the same state, or no arrows at all. To represent a jump, have no alphabet character preceeding the : 
 
 For example the command
 

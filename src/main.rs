@@ -72,7 +72,7 @@ fn main() {
 	}
     }
 
-    let input_word = cli.word.as_deref().map(|s| s.to_string());
+    let input_word = cli.word.as_deref();
     let output_dfa = cli.dfa_output.as_deref().map(|s| s.to_string());
     let output_nfa_in = cli.nfa_output.as_deref().map(|s| s.to_string());
     
@@ -139,7 +139,7 @@ struct DFAState {
     accepting:bool
 }
 
-fn dfa_option(lines:Vec<String>, input_word:Option<String>) -> Rslt {
+fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
     let dfa:DFA;
     match lines_to_dfa(lines) {
 	Err(e) => return Rslt::Err(e),
@@ -214,15 +214,14 @@ fn line_to_dfa_state(line:&String,num_letters:usize,num_states:usize) -> Result<
 	    accepting: accept}
     );
 }
-fn run_dfa(dfa:DFA, input_word:Option<String>) -> Rslt {
+fn run_dfa(dfa:DFA, input_word:Option<&str>) -> Rslt {
    
-    let word:String;
+    let word:&str;
     if let Some(in_word) = input_word {
 	word=in_word;
     } else {
 	return Rslt::Notodo;
     }
-    let word = word.as_str();
 
     let mut current_state=dfa.starting;
     for letter in word.chars() {
@@ -270,7 +269,7 @@ fn code_to_list(input:u64) -> Vec<u64> {
 */
 
 
-fn run_nfa(lines:Vec<String>, input_word:Option<String>, output_dfa:Option<String>) -> Rslt {
+fn run_nfa(lines:Vec<String>, input_word:Option<String>, output_dfa:Option<&str>) -> Rslt {
     if lines.len()<3 {
 	return Rslt::Err(format!("Input file is too short"));
     }
@@ -497,7 +496,7 @@ fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
     return recurse_eq(code,states,0);
 }
 
-fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, input_word:Option<String>) -> Rslt {
+fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, input_word:Option<&str>) -> Rslt {
     let is_word:bool;
     //println!("{:?}",word);
     if let Some(_) = input_word {

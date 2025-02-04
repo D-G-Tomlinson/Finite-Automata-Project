@@ -53,70 +53,93 @@ fn main() {
 
     println!("Use the --help option (i.e. cargo run -- --help) to learn about possible options.");
     
-    let mut input_type = InputType::DFA; //doesn't really matter as long as it's not REGEX
     let cli = Cli::parse();
 
-    let mut regex:String = String::new();
-    if let Some(in_regex) = cli.regex.as_deref() {
-	regex = String::from(in_regex);
-	input_type = InputType::REGEX
+    let mut regex_in:String = String::new();
+    let is_regex:bool;
+    if let Some(regex) = cli.regex.as_deref() {
+	regex_in = String::from(regex);
+	is_regex = true;
+    } else {
+	is_regex = false;
     }
 
-    
-    let address:&str;
-    let mut contents = String::new();
-    let mut lines = Vec::<&str>::new();
-    if let Some(input) = cli.input.as_deref() {
-	if input_type == InputType::REGEX {
-	    println!("No input file for regex operations.");
+    let input_type:InputType;
+    let lines:Vec<String>;
+    match get_type_lines(cli.input.as_deref(), is_regex) {
+	Err(e) => {
+	    println!("{}",e);
 	    return;
-	} else {
-	    address=input;
-	    let file_type = address.split('.').last().unwrap().to_uppercase();
-	    match file_type.as_str() {
-		"DFA" => input_type = InputType::DFA,
-		"NFA" => input_type = InputType::NFA,
-		_ => {
-		    println!("File type is unsupported.");
-		    return;
-		}
-	    }
-	    match File::open(address) {
-		Ok(mut f) => _ = f.read_to_string(&mut contents),
-		Err(_) => {
-		    println!("Cannot read file.");
-		    return;
-		}
-	    }
-	    lines = contents.lines().collect();
+	},
+	Ok((t,l)) => {
+	    input_type = t;
+	    lines = l;
 	}
-    } else if input_type != InputType::REGEX {
-	println!("No automata or regex provided.");
-	return;
     }
+
+    let input_word = cli.word.as_deref().map(|s| s.to_string());
+    let output_dfa = cli.dfa_output.as_deref().map(|s| s.to_string());
+    let output_nfa_in = cli.nfa_output.as_deref().map(|s| s.to_string());
+    
     let result:Rslt = match input_type {
-	InputType::DFA => run_dfa(lines, cli.word.as_deref().map(|s| s.to_string())),
-	InputType::NFA => run_nfa(lines,
-				  cli.word.as_deref().map(|s| s.to_string()),
-				  cli.dfa_output.as_deref().map(|s| s.to_string())
-				  ),
-	InputType::REGEX => run_regex(regex,
-				      cli.dfa_output.as_deref().map(|s| s.to_string()),
-				      cli.nfa_output.as_deref().map(|s| s.to_string()),
-				      cli.word.as_deref().map(|s| s.to_string()))
+	InputType::DFA => run_dfa(lines, input_word),
+	InputType::NFA => run_nfa(lines, input_word, output_dfa),
+	InputType::REGEX => run_regex(regex_in, output_dfa, output_nfa_in, input_word)
     };
     
     println!("{}", match result {
 	Rslt::Err(e) => e,
 	Rslt::Acc => format!("ACCEPT"),
 	Rslt::Rej => format!("REJECT"),
-	Rslt::Nop => format!("No word provided, program finished without computation"),
+	Rslt::Nop => format!("No word provided, program finished without computation, only conversion."),
 	Rslt::Notodo => format!("No word or output file provided, nothing to do.")
     });
     return;
 }
 
-fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Rslt {
+fn get_type_lines(input: Option<&str>, is_regex:bool) -> Result<(InputType, Vec<String>),String> {
+    if let Some(address) = input {
+	if is_regex {
+	    return Err(format!("No input file for regex operations."));
+	} else {
+	    return read_input_file(address);
+	}
+    } else if is_regex {
+	return Ok((InputType::REGEX, Vec::new()));
+    } else {
+	return Err(format!("No automata or regex provided."));
+    }
+}
+
+fn read_input_file(address:&str) -> Result<(InputType, Vec<String>),String> {
+    let file_type = address.split('.').last().unwrap().to_uppercase();
+    let input_type:InputType;
+    match file_type.as_str() {
+	"DFA" => input_type = InputType::DFA,
+	"NFA" => input_type = InputType::NFA,
+	_ => {
+	    return Err(format!("File type is unsupported."));
+	}
+    }
+
+    
+    let mut contents= String::new();
+    match File::open(address) {
+	Ok(mut f) => _ = f.read_to_string(&mut contents),
+	Err(_) => {
+	    return Err(format!("Cannot read file."));
+	}
+    }
+    println!("{}",contents);
+    let lines = contents.lines().map(|s| s.to_string()).collect();
+    return Ok((input_type,lines));
+}
+/*
+fn dfa_option(lines:Vec<&str>,input_word:Option<String>) -> Rslt {
+
+}*/
+
+fn run_dfa(lines:Vec<String>, input_word:Option<String>) -> Rslt {
    
     if lines.len()<3 {
 	return Rslt::Err(format!("Input file is too short"));
@@ -129,7 +152,7 @@ fn run_dfa(lines:Vec<&str>, input_word:Option<String>) -> Rslt {
     }
     let word = word.as_str();
     
-    let alphabet = lines[0];
+    let alphabet = &lines[0];
     let mut alphabet_map:HashMap<char,usize> = HashMap::new();
 
     let mut i:usize = 0;
@@ -224,7 +247,7 @@ fn code_to_list(input:u64) -> Vec<u64> {
 */
 
 
-fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<String>) -> Rslt {
+fn run_nfa(lines:Vec<String>, input_word:Option<String>, output_dfa:Option<String>) -> Rslt {
     if lines.len()<3 {
 	return Rslt::Err(format!("Input file is too short"));
     }
@@ -239,7 +262,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     let output;
     let is_output:bool;
 
-    if let Some(in_output) = output_option {
+    if let Some(in_output) = output_dfa {
 	output = in_output;
 	let file_type = output.split('.').last().unwrap().to_uppercase();
 	if file_type != "DFA" {
@@ -255,7 +278,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
 	return Rslt::Notodo;
     }
 
-    let alphabet_string = lines[0];
+    let alphabet_string = &lines[0];
     let alphabet:Vec<char> = alphabet_string.chars().collect();
     let mut alphabet_hashmap = HashMap::<char,u32>::new();
     let mut i = 1;
@@ -328,11 +351,7 @@ fn run_nfa(lines:Vec<&str>, input_word:Option<String>, output_option:Option<Stri
     }
     
     if is_word {
-	let mut str_result_dfa: Vec<&str> = Vec::new();
-	for i in 0..result_dfa.len() {
-	    str_result_dfa.push(result_dfa[i].as_str());
-	}
-	return run_dfa(str_result_dfa, input_word);
+	return run_dfa(result_dfa, input_word);
     }
     return Rslt::Nop;
     
@@ -455,10 +474,10 @@ fn equivalence(code:u64, states:&HashMap<u64,NFAState>) -> u64 {
     return recurse_eq(code,states,0);
 }
 
-fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, word:Option<String>) -> Rslt {
+fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<String>, input_word:Option<String>) -> Rslt {
     let is_word:bool;
     //println!("{:?}",word);
-    if let Some(_) = word {
+    if let Some(_) = input_word {
 	is_word = true;
     } else {
 	is_word = false;
@@ -531,11 +550,7 @@ fn run_regex(regex_in:String, output_dfa:Option<String>, output_nfa_in:Option<St
     }
     
     if is_word || is_output_dfa {
-	let mut str_result_nfa: Vec<&str> = Vec::new();
-	for i in 0..regex_nfa.len() {
-	    str_result_nfa.push(regex_nfa[i].as_str());
-	}
-	return run_nfa(str_result_nfa,word,output_dfa);
+	return run_nfa(regex_nfa,input_word,output_dfa);
     }
     
     return Rslt::Nop;

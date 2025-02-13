@@ -1,44 +1,32 @@
 use std::collections::HashMap;
 use crate::Rslt;
-mod dfa;
+use crate::dfa::DFA;
+use crate::dfa::DFAState;
 
 #[derive(Clone)]
-struct NFAState {
+pub struct NFAState {
     transitions:Vec<u64>,
     accepting:bool
 }
 
-struct NFA {
+pub struct NFA {
     states:HashMap<u64, NFAState>,
     starting:u64,
     alphabet:String
 }
-/*
-fn code_to_list(input:u64) -> Vec<u64> {
-    let mut result = Vec::<u64>::new();
 
-    let mut i = 1;
-    for _ in 1..64 {
-	if (input & i) != 0 {
-	    result.push(1);
-	}
-	i = i << 1;
-    }
-    return result;
-}
-*/
+impl NFA {
 
-
-pub fn run_nfa(lines:Vec<String>, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
-    if lines.len()<3 {
-	return Rslt::Err(format!("Input file is too short"));
-    }
+pub fn run(&self, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
     let is_word:bool;
 
-    if let Some(_) = input_word {
+    let word:&str;
+    if let Some(in_word) = input_word {
 	is_word = true;
+	word=in_word;
     } else {
 	is_word = false;
+	word="";
     }
     
     let dfa_output_address;
@@ -59,91 +47,34 @@ pub fn run_nfa(lines:Vec<String>, input_word:Option<&str>, output_dfa:Option<&st
     if !(is_output||is_word) {
 	return Rslt::Notodo;
     }
+    let result_dfa:DFA;
 
-    let alphabet_string = &lines[0];
-    let alphabet:Vec<char> = alphabet_string.chars().collect();
-    let mut alphabet_hashmap = HashMap::<char,u32>::new();
-    let mut i = 1;
-    for c in &alphabet {
-	alphabet_hashmap.insert(*c,i);
-	i = i+1;
+    match self.to_dfa() {
+	Ok(d) => result_dfa = d,
+	Err(e) => return Rslt::Err(e)
     }
-//    println!("Alphabet is {alphabet_hashmap:?}");
-    let mut nfa_states = HashMap::<u64, NFAState>::new();
-    //this introduces a limit of 64 initial states, but that is fine for the small automata I'll be experimenting with.
-    //will rework this system in a later update
-    let start_state = lines[1].parse::<usize>().unwrap();
-    let start_state: u64 = 1 << (start_state - 1);
-
-    let mut i:u64 = 1;
-    for state in &lines[2..] {
-	let comma_split:Vec<&str> = state.split(",").collect();
-	let num_parts = comma_split.len();
-
-	let mut next_states:Vec<u64> = vec![0;alphabet.len() + 1];
-	
-	if num_parts > 1 {
-	    for transition in (&comma_split[0..num_parts-1]).into_iter(){
-		let parts:Vec<&str> = transition.split(":").collect();
-//		println!{"{:?}",parts[0].chars()};
-//		let letter:char = parts[0].chars().next().unwrap();
-
-		let chars:Vec<char> = parts[0].chars().collect();
-		let transition_num:usize = match chars.len() {
-		    0 => 0,
-		    1 => alphabet_hashmap[&chars[0]] as usize,
-		    _ => return Rslt::Err(format!("Each transition has one letter, not multiple"))
-		};
-		
-		let value:u64 = parts[1].parse().unwrap();
-		next_states[transition_num] = next_states[transition_num] | (1 << (value-1))
-	    }
-	}
-
-	let accept:bool;
-	match comma_split[num_parts - 1].parse() {
-	    Ok(a) => accept = a,
-	    Err(_) => return Rslt::Err(format!("Poorly formatted accepting/not accepting value.")),
-	}
-	//println!("Adding state {}",i);
-	nfa_states.insert(i, NFAState{
-	    transitions:next_states,
-	    accepting:accept
-	});
-	
-	i = i << 1; //we can represent each individual state n as 2 ^(n-1), and a set of multiple states (including singleton sets) as binary ORs of these values.
-    }
-
-    let initial_nfa = NFA {
-	states: nfa_states,
-	starting: start_state,
-	alphabet: String::from(alphabet_string)
-    };
-
-    let result_dfa:Vec<String> = nfa_to_dfa(initial_nfa);
 
     if is_output {
-	match crate::print_lines_to_file(result_dfa,dfa_output_address) {
+	match crate::print_lines_to_file(result_dfa.format(),dfa_output_address) {
 	    Ok(()) => (),
 	    Err(e) => return Rslt::Err(e)
 	}
     }
     
     if is_word {
-	return dfa::run_dfa(result_dfa, input_word);
+	return result_dfa.run(word);
     }
     return Rslt::Nop;
     
 }
 
-fn nfa_to_dfa(input:NFA) -> Vec<String> {
-    let starting_state_set:u64 = equivalence(input.starting,&input.states);
-    let alphabet = input.alphabet;
-    let states = input.states;
+fn to_dfa(&self) -> Result<DFA,String> {
+    let starting_state_set:u64 = equivalence(self.starting,&self.states);
+    let alphabet = &self.alphabet;
+    let states = &self.states;
     
-    let mut result:Vec<String> = Vec::new();
-    result.push(alphabet.clone());
-    result.push(format!("1"));
+    let dfa_states:Vec<DFAState> = Vec::new();
+    let starting = 0;
 
     let mut visited:HashMap<u64,NFAState> = HashMap::new();
     let mut ordered_visited:Vec<u64> = Vec::new();
@@ -178,18 +109,117 @@ fn nfa_to_dfa(input:NFA) -> Vec<String> {
 	});
 	frontier.remove(0);
     }
+    let mut states = dfa_states;
     for i in 0..(count-1) {
+	let mut transitions:Vec<usize> = Vec::new();
 	let current_state = ordered_visited[i];
-	let mut value = String::new();
 	for t in &visited[&current_state].transitions { //in this case, the first transition is the first non-empty element of the alphabet
-	    let temp_string = format!("{},",old_to_new_identifier[&t]);
-	    value.push_str(&temp_string);
+	    transitions.push(old_to_new_identifier[&t]);
+
 	}
-	let temp_string = visited[&current_state].accepting.to_string();
-	value.push_str(&temp_string);
-	result.push(value);
+	let accepting = visited[&current_state].accepting;
+	states.push(DFAState{transitions,accepting});
     }
-    return result
+
+    let alphabet_map:HashMap<char,usize>;
+    match crate::dfa::alphabet_to_alphabet_map(&alphabet) {
+	Err(e) => return Err(e),
+	Ok(am) => alphabet_map =am
+    }
+   
+    return Ok(DFA{alphabet_map,starting,states});
+}
+
+}
+
+/*
+fn code_to_list(input:u64) -> Vec<u64> {
+    let mut result = Vec::<u64>::new();
+
+    let mut i = 1;
+    for _ in 1..64 {
+	if (input & i) != 0 {
+	    result.push(1);
+	}
+	i = i << 1;
+    }
+    return result;
+}
+*/
+
+pub fn nfa_option(lines:Vec<String>, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
+    let nfa: NFA;
+    match lines_to_nfa(lines) {
+	Ok(n) => nfa = n,
+	Err(e) => return Rslt::Err(e)
+    }
+    return nfa.run(input_word, output_dfa);
+}
+
+fn lines_to_nfa(lines:Vec<String>) -> Result<NFA, String> {
+    if lines.len()<3 {
+	return Err(format!("Input file is too short"));
+    }
+    
+    let alphabet_string = &lines[0];
+    let alphabet:Vec<char> = alphabet_string.chars().collect();
+    let mut alphabet_hashmap = HashMap::<char,u32>::new();
+    let mut i = 1;
+    for c in &alphabet {
+	alphabet_hashmap.insert(*c,i);
+	i = i+1;
+    }
+//    println!("Alphabet is {alphabet_hashmap:?}");
+    let mut nfa_states = HashMap::<u64, NFAState>::new();
+    //this introduces a limit of 64 initial states, but that is fine for the small automata I'll be experimenting with.
+    //will rework this system in a later update
+    let start_state = lines[1].parse::<usize>().unwrap();
+    let start_state: u64 = 1 << (start_state - 1);
+
+    let mut i:u64 = 1;
+    for state in &lines[2..] {
+	let comma_split:Vec<&str> = state.split(",").collect();
+	let num_parts = comma_split.len();
+
+	let mut next_states:Vec<u64> = vec![0;alphabet.len() + 1];
+	
+	if num_parts > 1 {
+	    for transition in (&comma_split[0..num_parts-1]).into_iter(){
+		let parts:Vec<&str> = transition.split(":").collect();
+//		println!{"{:?}",parts[0].chars()};
+//		let letter:char = parts[0].chars().next().unwrap();
+
+		let chars:Vec<char> = parts[0].chars().collect();
+		let transition_num:usize = match chars.len() {
+		    0 => 0,
+		    1 => alphabet_hashmap[&chars[0]] as usize,
+		    _ => return Err(format!("Each transition has one letter, not multiple"))
+		};
+		
+		let value:u64 = parts[1].parse().unwrap();
+		next_states[transition_num] = next_states[transition_num] | (1 << (value-1))
+	    }
+	}
+
+	let accept:bool;
+	match comma_split[num_parts - 1].parse() {
+	    Ok(a) => accept = a,
+	    Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
+	}
+	//println!("Adding state {}",i);
+	nfa_states.insert(i, NFAState{
+	    transitions:next_states,
+	    accepting:accept
+	});
+	
+	i = i << 1; //we can represent each individual state n as 2 ^(n-1), and a set of multiple states (including singleton sets) as binary ORs of these values.
+    }
+
+    return Ok(NFA {
+	states: nfa_states,
+	starting: start_state,
+	alphabet: String::from(alphabet_string)
+    });
 }
 
 fn get_next_states(stateset:u64, letter:usize, states:&HashMap<u64, NFAState>) -> u64 { //only use this on equivalence sets of another state set, so do not need to cover jumps from the given stateset

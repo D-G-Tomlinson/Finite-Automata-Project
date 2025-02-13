@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use crate::Rslt;
 
+
+
 pub fn run_regex(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Option<&str>, input_word:Option<&str>) -> Rslt {
     let is_word:bool;
     //println!("{:?}",word);

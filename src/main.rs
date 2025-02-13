@@ -77,12 +77,12 @@ fn main() {
 
     let input_word = cli.word.as_deref();
     let output_dfa = cli.dfa_output.as_deref();
-    let output_nfa_in = cli.nfa_output.as_deref();
+    let output_nfa = cli.nfa_output.as_deref();
     
     let result:Rslt = match input_type {
 	InputType::DFA => dfa::dfa_option(lines, input_word),
-	InputType::NFA => nfa::run_nfa(lines, input_word, output_dfa),
-	InputType::REGEX => regex::run_regex(regex_in, output_dfa, output_nfa_in, input_word)
+	InputType::NFA => nfa::nfa_option(lines, input_word, output_dfa),
+	InputType::REGEX => regex::run_regex(regex_in, output_dfa, output_nfa, input_word)
     };
     
     println!("{}", match result {

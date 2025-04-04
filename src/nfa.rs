@@ -17,119 +17,121 @@ pub struct NFA {
 
 impl NFA {
 
-pub fn run(&self, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
-    let is_word:bool;
-
-    let word:&str;
-    if let Some(in_word) = input_word {
-	is_word = true;
-	word=in_word;
-    } else {
-	is_word = false;
-	word="";
-    }
-    
-    let dfa_output_address;
-    let is_output:bool;
-
-    if let Some(in_output) = output_dfa {
-	dfa_output_address = in_output;
-	let file_type = dfa_output_address.split('.').last().unwrap().to_uppercase();
-	if file_type != "DFA" {
-	    return Rslt::Err(format!("Can only write to .dfa files"));
+    pub fn run(&self, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
+	let is_word:bool;
+	
+	let word:&str;
+	if let Some(in_word) = input_word {
+	    is_word = true;
+	    word=in_word;
+	} else {
+	    is_word = false;
+	    word="";
 	}
-	is_output = true;
-    } else {
-	dfa_output_address = "";
-	is_output = false;
-    }
-
-    if !(is_output||is_word) {
-	return Rslt::Notodo;
-    }
-    let result_dfa:DFA;
-
-    match self.to_dfa() {
-	Ok(d) => result_dfa = d,
-	Err(e) => return Rslt::Err(e)
-    }
-
-    if is_output {
-	match crate::print_lines_to_file(result_dfa.format(),dfa_output_address) {
-	    Ok(()) => (),
+	
+	let dfa_output_address;
+	let is_output:bool;
+	
+	if let Some(in_output) = output_dfa {
+	    dfa_output_address = in_output;
+	    let file_type = dfa_output_address.split('.').last().unwrap().to_uppercase();
+	    if file_type != "DFA" {
+		return Rslt::Err(format!("Can only write to .dfa files"));
+	    }
+	    is_output = true;
+	} else {
+	    dfa_output_address = "";
+	    is_output = false;
+	}
+	
+	if !(is_output||is_word) {
+	    return Rslt::Notodo;
+	}
+	let result_dfa:DFA;
+	
+	match self.to_dfa() {
+	    Ok(d) => result_dfa = d,
 	    Err(e) => return Rslt::Err(e)
 	}
-    }
-    
-    if is_word {
-	return result_dfa.run(word);
-    }
-    return Rslt::Nop;
-    
-}
-
-fn to_dfa(&self) -> Result<DFA,String> {
-    let starting_state_set:u64 = equivalence(self.starting,&self.states);
-    let alphabet = &self.alphabet;
-    let states = &self.states;
-    
-    let dfa_states:Vec<DFAState> = Vec::new();
-    let starting = 0;
-
-    let mut visited:HashMap<u64,NFAState> = HashMap::new();
-    let mut ordered_visited:Vec<u64> = Vec::new();
-    let mut frontier:Vec<u64> = Vec::new();
-
-    let mut old_to_new_identifier:HashMap<u64,usize> = HashMap::new();
-    let mut count = 1;
-    
-    frontier.push(starting_state_set);
-
-    let upperbound:usize = alphabet.len() + 1;
-    
-    while frontier.len() > 0 {
-	let consider = frontier[0]; //the first state-set to be considered will be the starting state-set
-
-	old_to_new_identifier.insert(consider, count);
-	ordered_visited.push(consider);
-	count = count + 1;
 	
-	let accepting = is_accepting(consider, &states);
-	let mut transitions:Vec<u64> = Vec::new();
-	for transition in 1..upperbound { //start at 1 as transition 0 is the jump option
-	    let result = get_next_states(consider,transition,&states);
-	    transitions.push(result);
-	    if !(visited.contains_key(&result) || frontier.contains(&result)) {
-		frontier.push(result);
+	if is_output {
+	    match crate::print_lines_to_file(result_dfa.format(),dfa_output_address) {
+		Ok(()) => (),
+		Err(e) => return Rslt::Err(e)
 	    }
 	}
-	visited.insert(consider, NFAState{
-	    transitions,
-	    accepting
-	});
-	frontier.remove(0);
-    }
-    let mut states = dfa_states;
-    for i in 0..(count-1) {
-	let mut transitions:Vec<usize> = Vec::new();
-	let current_state = ordered_visited[i];
-	for t in &visited[&current_state].transitions { //in this case, the first transition is the first non-empty element of the alphabet
-	    transitions.push(old_to_new_identifier[&t]);
-
+	
+	if is_word {
+	    return result_dfa.run(word);
 	}
-	let accepting = visited[&current_state].accepting;
-	states.push(DFAState{transitions,accepting});
+	return Rslt::Nop;
+	
     }
-
-    let alphabet_map:HashMap<char,usize>;
-    match crate::dfa::alphabet_to_alphabet_map(&alphabet) {
-	Err(e) => return Err(e),
-	Ok(am) => alphabet_map =am
+    
+    fn to_dfa(&self) -> Result<DFA,String> {
+	let starting_state_set:u64 = equivalence(self.starting,&self.states);
+	let alphabet = &self.alphabet;
+	let states = &self.states;
+	
+	let dfa_states:Vec<DFAState> = Vec::new();
+	let starting = 0;
+	
+	let mut visited:HashMap<u64,NFAState> = HashMap::new();
+	let mut ordered_visited:Vec<u64> = Vec::new();
+	let mut frontier:Vec<u64> = Vec::new();
+	
+	let mut old_to_new_identifier:HashMap<u64,usize> = HashMap::new();
+	let mut count = 1;
+    
+	frontier.push(starting_state_set);
+	
+	let upperbound:usize = alphabet.len() + 1;
+	
+	while frontier.len() > 0 {
+	    let consider = frontier[0]; //the first state-set to be considered will be the starting state-set
+	    
+	    old_to_new_identifier.insert(consider, count);
+	    ordered_visited.push(consider);
+	    count = count + 1;
+	    
+	    let accepting = is_accepting(consider, &states);
+	    let mut transitions:Vec<u64> = Vec::new();
+	    for transition in 1..upperbound { //start at 1 as transition 0 is the jump option
+		let result = get_next_states(consider,transition,&states);
+		transitions.push(result);
+		if !(visited.contains_key(&result) || frontier.contains(&result)) {
+		    frontier.push(result);
+		}
+	    }
+	    visited.insert(consider, NFAState{
+		transitions,
+		accepting
+	    });
+	    frontier.remove(0);
+	}
+	let mut states = dfa_states;
+	for i in 0..(count-1) {
+	    let mut transitions:Vec<usize> = Vec::new();
+	    let current_state = ordered_visited[i];
+	    for t in &visited[&current_state].transitions { //in this case, the first transition is the first non-empty element of the alphabet
+		transitions.push(old_to_new_identifier[&t]);
+		
+	}
+	    let accepting = visited[&current_state].accepting;
+	    states.push(DFAState{transitions,accepting});
+	}
+	
+	let alphabet_map:HashMap<char,usize>;
+	match crate::dfa::alphabet_to_alphabet_map(&alphabet) {
+	    Err(e) => return Err(e),
+	    Ok(am) => alphabet_map =am
+	}
+	
+	return Ok(DFA{alphabet_map,starting,states});
     }
-   
-    return Ok(DFA{alphabet_map,starting,states});
-}
-
+    
+    fn get_visited_etc()
+    
 }
 
 /*

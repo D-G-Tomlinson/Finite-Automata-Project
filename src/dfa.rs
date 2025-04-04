@@ -9,56 +9,66 @@ pub struct DFA {
 }
 
 impl DFA {
-pub fn run(&self, word:&str) -> Rslt {
-   
-    let mut current_state=self.starting;
-    for letter in word.chars() {
-
-	if !self.alphabet_map.contains_key(&letter) {
-	    return Rslt::Rej;//if a letter in the word is not in the alphabet, reject the word
-	}	
-	let equivalent = self.alphabet_map[&letter];
-	let current_state_obj = &self.states[current_state];
-	let edges = &current_state_obj.transitions;
-	current_state = edges[equivalent];
-    }
-//    println!{"Final state is {}",current_state}
-    return match self.states[current_state].accepting {
-	true => Rslt::Acc,
-	false => Rslt::Rej
+    pub fn new(states:Vec<DFAState>, alphabet_map:HashMap<char,usize>,starting:usize) -> DFA {
+	return DFA{states, alphabet_map, starting};
     }
     
-}
-pub fn format(&self) -> Vec<String> {
-    let mut output:Vec<String> = Vec::new();
-    output.push(DFA::format_alphabet(&self.alphabet_map));
-    output.push((self.starting+1).to_string());
-    for state in &self.states {
-	let mut line=String::new();
-	for transition in &state.transitions {
-	    line.push_str(&format!("{},",transition+1));
+    pub fn run(&self, word:&str) -> Rslt {
+	
+	let mut current_state=self.starting;
+	for letter in word.chars() {
+	    
+	    if !self.alphabet_map.contains_key(&letter) {
+		return Rslt::Rej;//if a letter in the word is not in the alphabet, reject the word
+	    }	
+	    let equivalent = self.alphabet_map[&letter];
+	    let current_state_obj = &self.states[current_state];
+	    let edges = &current_state_obj.transitions;
+	    current_state = edges[equivalent];
 	}
-	line.push_str(&state.accepting.to_string());
-	output.push(line);
+//    println!{"Final state is {}",current_state}
+	return match self.states[current_state].accepting {
+	    true => Rslt::Acc,
+	    false => Rslt::Rej
+	}
+	
     }
+    pub fn format(&self) -> Vec<String> {
+	let mut output:Vec<String> = Vec::new();
+	output.push(DFA::format_alphabet(&self.alphabet_map));
+	output.push((self.starting+1).to_string());
+	for state in &self.states {
+	    let mut line=String::new();
+	    for transition in &state.transitions {
+		line.push_str(&format!("{},",transition+1));
+	    }
+	    line.push_str(&state.accepting.to_string());
+	    output.push(line);
+	}
     return output;
-}
-
-fn format_alphabet(alphabet_map:&HashMap<char,usize>) -> String {
-    let mut chars:Vec<char> = vec!['a';alphabet_map.len()];
+    }
+    
+    fn format_alphabet(alphabet_map:&HashMap<char,usize>) -> String {
+	let mut chars:Vec<char> = vec!['a';alphabet_map.len()];
     for k in alphabet_map.keys() {
 	chars[alphabet_map[k]] = *k;
     }
-    return chars.into_iter().collect();
-}
-
-
+	return chars.into_iter().collect();
+    }
+    
+    
 }
 
 #[derive(Clone)]
 pub struct DFAState {
     transitions: Vec<usize>,
     accepting:bool
+}
+
+impl DFAState {
+    pub fn new(transitions:Vec<usize>,accepting:bool) -> DFAState {
+	return DFAState{transitions, accepting};
+    }
 }
 
 pub fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
@@ -102,7 +112,7 @@ fn lines_to_dfa(lines:Vec<String>) -> Result<DFA,String> {
 	    Ok(new_state)=> states.push(new_state)
 	}
     }
-    return Ok(DFA{states,alphabet_map,starting});
+    return Ok(DFA::new(states,alphabet_map,starting));
 
 }
 
@@ -148,8 +158,8 @@ fn line_to_dfa_state(line:&String,num_letters:usize,num_states:usize) -> Result<
     }
     
     return Ok(
-	DFAState{
-	    transitions: next_states,
-	    accepting: accept}
+	DFAState::new(
+	    next_states,
+	    accept)
     );
 }

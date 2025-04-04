@@ -82,7 +82,7 @@ fn main() {
     let result:Rslt = match input_type {
 	InputType::DFA => dfa::dfa_option(lines, input_word),
 	InputType::NFA => nfa::nfa_option(lines, input_word, output_dfa),
-	InputType::REGEX => regex::run_regex(regex_in, output_dfa, output_nfa, input_word)
+	InputType::REGEX => Rslt::Err(format!("Not implemented yet"))//regex::run_regex(regex_in, output_dfa, output_nfa, input_word)
     };
     
     println!("{}", match result {

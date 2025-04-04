@@ -9,6 +9,12 @@ pub struct NFAState {
     accepting:bool
 }
 
+impl NFAState {
+    pub fn new(transitions:Vec<u64>,accepting:bool) -> NFAState {
+	return NFAState{transitions,accepting};
+    }
+}
+
 pub struct NFA {
     states:HashMap<u64, NFAState>,
     starting:u64,
@@ -16,7 +22,10 @@ pub struct NFA {
 }
 
 impl NFA {
-
+    pub fn new(states:HashMap<u64, NFAState>,starting:u64,alphabet:String ) -> NFA {
+	return NFA{states,starting,alphabet};
+    }
+    
     pub fn run(&self, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
 	let is_word:bool;
 	
@@ -103,10 +112,10 @@ impl NFA {
 		    frontier.push(result);
 		}
 	    }
-	    visited.insert(consider, NFAState{
+	    visited.insert(consider, NFAState::new(
 		transitions,
 		accepting
-	    });
+	    ));
 	    frontier.remove(0);
 	}
 	let mut states = dfa_states;
@@ -118,7 +127,7 @@ impl NFA {
 		
 	}
 	    let accepting = visited[&current_state].accepting;
-	    states.push(DFAState{transitions,accepting});
+	    states.push(DFAState::new(transitions,accepting));
 	}
 	
 	let alphabet_map:HashMap<char,usize>;
@@ -127,10 +136,13 @@ impl NFA {
 	    Ok(am) => alphabet_map =am
 	}
 	
-	return Ok(DFA{alphabet_map,starting,states});
+	return Ok(DFA::new(states,alphabet_map,starting));
     }
     
-    fn get_visited_etc()
+    fn get_visited_etc() -> ()
+    {
+
+    }
     
 }
 
@@ -209,19 +221,19 @@ fn lines_to_nfa(lines:Vec<String>) -> Result<NFA, String> {
 	    Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
 	}
 	//println!("Adding state {}",i);
-	nfa_states.insert(i, NFAState{
-	    transitions:next_states,
-	    accepting:accept
-	});
+	nfa_states.insert(i, NFAState::new(
+	    next_states,
+	    accept
+	));
 	
 	i = i << 1; //we can represent each individual state n as 2 ^(n-1), and a set of multiple states (including singleton sets) as binary ORs of these values.
     }
 
-    return Ok(NFA {
-	states: nfa_states,
-	starting: start_state,
-	alphabet: String::from(alphabet_string)
-    });
+    return Ok(NFA::new(
+	nfa_states,
+	start_state,
+	String::from(alphabet_string)
+    ));
 }
 
 fn get_next_states(stateset:u64, letter:usize, states:&HashMap<u64, NFAState>) -> u64 { //only use this on equivalence sets of another state set, so do not need to cover jumps from the given stateset

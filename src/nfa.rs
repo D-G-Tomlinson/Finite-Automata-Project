@@ -7,11 +7,12 @@ use crate::dfa::DFAState;
 pub struct NFAState {
     transitions:Vec<Vec<usize>>,
     accepting:bool,
+	equivalents:Option<Vec<usize>>,
 }
 
 impl NFAState {
-    pub fn new(transitions:Vec<Vec<usize>>,accepting:bool) -> NFAState {
-		return NFAState{transitions,accepting};
+    pub fn new(transitions:Vec<Vec<usize>>,accepting:bool,equivalents:Option<Vec<usize>>) -> NFAState {
+		return NFAState{transitions,accepting,equivalents};
     }
 	pub fn from_line(line:&String,alphabet:&HashMap<char,usize>,num_states:usize) -> Result<NFAState,String> {
 		let comma_split:Vec<&str> = line.split(",").collect();
@@ -61,8 +62,11 @@ impl NFAState {
 			Err(_)  => return Err(format!("Poorly formatted accepting value"))
 			
 		};
-		return Ok(NFAState::new(transitions,accepting));
+		transitions.sort();
+		return Ok(NFAState::new(transitions,accepting,None));
 	}
+
+	
 }
 
 pub struct NFA {
@@ -116,8 +120,98 @@ impl NFA {
 		}
 		return alphabet_hashmap;
 	}
+/*
+	fn to_dfa(&self) -> DFA {
+		
+	}
+	 */
+	fn ordered_union(v1:&Vec<usize>,v2:&Vec<usize>) -> Vec<usize> {
+		if v1.len()==0 {
+			return v2.to_vec();
+		} else if v2.len()==0 {
+			return v1.to_vec();
+		}
+		
+		let mut result:Vec<usize> = Vec::new();
+		let mut i = 0;
+		let mut j = 0;
+		if v1[0]<v2[0] {
+			result.push(v1[0]);
+		} else {
+			result.push(v2[0]);
+		}
+		
+		while i < v1.len() || j < v2.len() {
+			let consider_v1:bool;
+			if i==v1.len() {
+				consider_v1 = false;
+			} else if j==v2.len() {
+				consider_v1 = true;
+			} else if v1[i]<=v2[j] {
+				consider_v1 = true;
+			} else {
+				consider_v1 = false;
+			}
+			if consider_v1 {
+				if result.last().unwrap() == &v1[i] {
+					i=i+1
+				} else {
+					result.push(v1[i]);
+					i=i+1;
+				}
+			} else {
+				if result.last().unwrap() == &v2[j] {
+					j=j+1
+				} else {
+					result.push(v2[j]);
+					j=j+1;
+				}
+			}
+		}
+		return result;
+	}
+	
+	fn check_all_vec(input:&Vec<bool>) -> bool {
+		for i in input {
+			if !i {
+				return false;
+			}
+		}
+		return true;
+	}
+	fn get_equivalents(&mut self) {
+		let num_states = self.states.len();
+		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();
+		let mut changed =vec![true;num_states];
+		while !NFA::check_all_vec(&changed) {
+			for i in 0..num_states {
+				changed[i]=false;
+				for j in 0..num_states {
+					if changed[i] {
+						let v1 = &eqs[i];
+						let v2 = &eqs[j];
+						let new = NFA::ordered_union(&v1,&v2);
+						if v1 == &new {
+							changed[i]=true;
+							eqs[i]=new;
+						}
+					}
+				}
+			}
+		}
+		for i in 0..num_states {
+			let old = &self.states[i];
+			let transitions = &old.transitions;
+			let accepting = old.accepting;
+			let equivalents = Some(eqs[i].clone());
+			self.states[i] = NFAState::new(transitions.to_vec(),accepting,equivalents);
+		}
+	}
 	
 	pub fn run(&self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
+
+
+
 		return Rslt::Err(format!("not finished yet"));
 	}
 }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use crate::Rslt;
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
@@ -7,11 +8,11 @@ use crate::dfa::DFAState;
 pub struct NFAState {
     transitions:Vec<Vec<usize>>,
     accepting:bool,
-	equivalents:Option<Vec<usize>>,
+	equivalents:Vec<usize>,
 }
 
 impl NFAState {
-    pub fn new(transitions:Vec<Vec<usize>>,accepting:bool,equivalents:Option<Vec<usize>>) -> NFAState {
+    pub fn new(transitions:Vec<Vec<usize>>,accepting:bool,equivalents:Vec<usize>) -> NFAState {
 		return NFAState{transitions,accepting,equivalents};
     }
 	pub fn from_line(line:&String,alphabet:&HashMap<char,usize>,num_states:usize) -> Result<NFAState,String> {
@@ -52,6 +53,7 @@ impl NFAState {
 				} else if value == 0 {
 					return Err(format!("The next state cannot be zero, states are indexed from 1"))
 				}
+				let value = value - 1;
 				if !transitions[transition_num].contains(&value) {
 					transitions[transition_num].push(value);
 				}
@@ -63,9 +65,8 @@ impl NFAState {
 			
 		};
 		transitions.sort();
-		return Ok(NFAState::new(transitions,accepting,None));
+		return Ok(NFAState::new(transitions,accepting,Vec::new()));
 	}
-
 	
 }
 
@@ -98,7 +99,7 @@ impl NFA {
 		};
 		let state_lines = &lines[2..];
 		let mut states:Vec<NFAState> = Vec::new();
-
+//		states.push(NFAState::new(Vec::new(),false,Vec::new()));//dummy state to represent the bin
 		for line in state_lines{
 			states.push(match NFAState::from_line(line,&alphabet,num_lines-2) {
 				Ok(nfastate) => nfastate,
@@ -179,7 +180,7 @@ impl NFA {
 		}
 		return true;
 	}
-	fn get_equivalents(&mut self) {
+	fn get_equivalents(&mut self) {		
 		let num_states = self.states.len();
 		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();
 		let mut changed =vec![true;num_states];
@@ -203,14 +204,105 @@ impl NFA {
 			let old = &self.states[i];
 			let transitions = &old.transitions;
 			let accepting = old.accepting;
-			let equivalents = Some(eqs[i].clone());
-			self.states[i] = NFAState::new(transitions.to_vec(),accepting,equivalents);
+			let equivalents = &eqs[i];
+			self.states[i] = NFAState::new(transitions.to_vec(),accepting,equivalents.to_vec());
 		}
 	}
+
+	fn get_equivalents_vec(&self, states:&Vec<usize>) -> Vec<usize> {
+		let mut result = Vec::new();
+		for state in states {
+			let eqs = &self.states[*state].equivalents;
+			result = NFA::ordered_union(&result,eqs);
+		}
+		return result;
+	}
+
+	fn get_to(&self, from:usize, by:usize) -> Vec<usize>{
+		let mut result:Vec<usize> = Vec::new();
+		let from_states = &self.states[from].equivalents;
+		for state in from_states {
+			let next = &self.states[*state].transitions[by];
+			let next_states = &self.get_equivalents_vec(next);
+			result = NFA::ordered_union(&result, next_states);
+		}
+		return result;
+	}
+
+	fn get_to_vec(&self, from:&Vec<usize>, by:usize) -> Vec<usize>{
+		let eqs = from.into_iter().map(|state| self.get_to(*state,by));
+		let mut result:Vec<usize> = Vec::new();
+		for state in eqs {
+			result = NFA::ordered_union(&result,&state);
+		}
+		return result;
+	}
+
+	fn add_line_to_table(&self,new_states:&mut HashMap<Vec<usize>,usize>,frontier:&mut VecDeque<Vec<usize>>,state_table:&mut Vec<Vec<usize>>,accepts:&mut Vec<bool>,state:&Vec<usize>) {
+		new_states.insert(state.to_vec(),state_table.len());
+		frontier.push_back(state.to_vec());
+		let accepting = self.is_accepting_vec(state.to_vec());		
+		state_table.push(Vec::new());
+	}
+
+	fn is_accepting(&self,input_state:&usize) -> bool {
+		let eqs = &self.states[*input_state].equivalents;
+		for state in eqs {
+			if self.states[*state].accepting {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	fn is_accepting_vec(&self,input_states:Vec<usize>) -> bool {
+		for state in input_states {
+			if self.is_accepting(&state) {
+				return true
+			}
+		}
+		return false;
+	}
+
 	
-	pub fn run(&self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
+	fn to_dfa(&mut self) -> DFA {
+		self.get_equivalents();
+		
+		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
+		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();
+		let mut state_table:Vec<Vec<usize>> = Vec::new();
+		let mut accepts:Vec<bool> = Vec::new();
+		
+		let first_state = &self.states[self.starting].equivalents;
+		self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&first_state);
 
+		while !frontier.is_empty() {
+			let current = self.get_equivalents_vec(&frontier.pop_front().unwrap());
+			let current_row = new_states[&current];			
+			for i in 1..self.alphabet.len() + 1 {
+				let next = self.get_to_vec(&current,i);
+				if !new_states.contains_key(&next) {
+					self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next);
+				}
+				state_table[current_row].push(new_states[&next]);
+			}
+		}
 
+		let states:Vec<DFAState> = (0..state_table.len()).map(|i|DFAState::new(state_table[i].clone(),accepts[i])).collect();
+		let alphabet_map = self.alphabet.clone();
+		let starting = 0;
+		
+		return DFA::new(states,alphabet_map,starting);
+	}
+	
+	pub fn run(&mut self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
+		if !(input_word.is_some() || output_dfa.is_some()) {
+			return Rslt::Notodo;
+		}
+
+		let dfa = self.to_dfa();
+
+		
 
 		return Rslt::Err(format!("not finished yet"));
 	}

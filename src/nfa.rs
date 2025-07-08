@@ -30,11 +30,11 @@ impl NFAState {
 			0 => 0,
 			1 => {
 				if alphabet.contains_key(&chars[0]) {
-						alphabet[&chars[0]] as usize
+					alphabet[&chars[0]] as usize
 				} else {
 					return Err(format!("The transition letter must be in the alphabet"));
 				}
-				},
+			},
 			_ => return Err(format!("Each transition must have one or no letters, not multiple"))
 		};
 		
@@ -74,7 +74,10 @@ impl NFAState {
 			Ok(a) => a,
 			Err(_)  => return Err(format!("Poorly formatted accepting value"))
 		};
-		transitions.sort();
+		for i in 0..transitions.len() {
+			transitions[i].sort();
+		}
+		println!("From {}, we get transitions: {:#?}",line,transitions);
 		return Ok(NFAState::new(transitions,accepting));
 	}
 	fn to_string(&self, alphabet:Vec<char>) -> String {
@@ -114,7 +117,7 @@ impl NFA {
 		let starting = match lines[1].parse::<usize>() {
 			Ok(n) => {
 				if n <= num_lines - 2 && n>0 {
-					n
+					n-1
 				} else {
 					return Err(format!("Starting number is not suitable"))
 				}
@@ -240,6 +243,7 @@ impl NFA {
 			let next_states =NFA::get_equivalents_vec(next,equivalents);
 			result = NFA::ordered_union(&result, &next_states);
 		}
+		println!("From {}, by {}, gets to {:#?}",from,by,result);
 		return result;
 	}
 
@@ -281,7 +285,7 @@ impl NFA {
 	
 	fn to_dfa(&self) -> DFA {
 		let equivalents = self.get_equivalents();
-		
+		println!("Equivalents are: {:#?}",equivalents);
 		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
 		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();
 		let mut state_table:Vec<Vec<usize>> = Vec::new();
@@ -290,11 +294,15 @@ impl NFA {
 		let first_state = &equivalents[self.starting];
 		self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&first_state,&equivalents);
 
+		println!("The alphabet is: {:#?}",self.alphabet);
+		
 		while !frontier.is_empty() {
 			let current = NFA::get_equivalents_vec(&frontier.pop_front().unwrap(),&equivalents);
+			println!("Current state-set is: {:#?}",current);
 			let current_row = new_states[&current];			
 			for i in 1..self.alphabet.len() + 1 {
 				let next = self.get_to_vec(&current,i,&equivalents);
+				println!("With option {}, it gets to {:#?}",i,next);
 				if !new_states.contains_key(&next) {
 					self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next,&equivalents);
 				}

@@ -121,30 +121,22 @@ fn read_input_file(address:&str) -> Result<(InputType, Vec<String>),String> {
     }    
     let mut contents= String::new();
     match File::open(address) {
-	Ok(mut f) => _ = f.read_to_string(&mut contents),
-	Err(_) => {
-	    return Err(format!("Cannot read file."));
-	}
+		Ok(mut f) => _ = f.read_to_string(&mut contents),
+		Err(_) => {
+			return Err(format!("Cannot read file."));
+		}
     }
-    println!("{}",contents);
+    //println!("{}",contents);
     let lines = contents.lines().map(|s| s.to_string()).collect();
     return Ok((input_type,lines));
 }
 
-fn print_lines_to_file(lines:Vec<String>,address:&str) -> Result<(),String> {
-
+fn print_to_file(val:String,address:&str) -> Result<(),String> {
     if let Ok(mut file_ptr) = File::create(address){
-	for i in 0..lines.len() - 1 {
-	    match writeln!(file_ptr, "{}", lines[i]) {
-		Ok(_) => (),
-		Err(e) => return Err(e.to_string()),
-	    }
-	}
-	match write!(file_ptr, "{}", lines[lines.len() - 1]) {
-	    Ok(_) => (),
-	    Err(e) => return Err(e.to_string())
-	}
+		match write!(file_ptr, "{}", val) {
+			Ok(_) => (),
+			Err(e) => return Err(e.to_string())
+		}
     }
-
     return Ok(());
 }

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use crate::Rslt;
@@ -76,8 +77,22 @@ impl NFAState {
 		transitions.sort();
 		return Ok(NFAState::new(transitions,accepting));
 	}
-	
+	fn to_string(&self, alphabet:Vec<char>) -> String {
+		let mut output:String = String::new();
+		for i in 0..alphabet.len() {
+			let letter = alphabet[i];
+			for goal in &self.transitions[i+1] {
+				output.push(letter);
+				output.push(':');
+				output.push_str(&(goal+1).to_string());
+				output.push(',');
+			}			
+		}
+		output.push_str(&self.accepting.to_string());
+		return output;
+	}
 }
+
 
 pub struct NFA {
 	states:Vec<NFAState>,
@@ -288,22 +303,79 @@ impl NFA {
 		}
 
 		let states:Vec<DFAState> = (0..state_table.len()).map(|i|DFAState::new(state_table[i].clone(),accepts[i])).collect();
-		let alphabet_map = self.alphabet.clone();
+		let mut alphabet_map:HashMap<char,usize> = HashMap::new();
+		for k in self.alphabet.keys() {
+			alphabet_map.insert(*k,self.alphabet[k]-1);
+		}
 		let starting = 0;
 		
 		return DFA::new(states,alphabet_map,starting);
 	}
 	
 	pub fn run(&self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
-		if !(input_word.is_some() || output_dfa.is_some()) {
+		let word:&str;
+		let is_word:bool;
+		if let Some(in_word) = input_word {
+			is_word = true;
+			word=in_word;
+		} else {
+			is_word = false;
+			word="";
+		}
+			
+		let dfa_output_address;
+		let is_output:bool;
+		if let Some(in_output) = output_dfa {
+			dfa_output_address = in_output;
+			let file_type = dfa_output_address.split('.').last().unwrap().to_uppercase();
+			if file_type != "DFA" {
+				return Rslt::Err(format!("Can only write to .dfa files"));
+			}
+			is_output = true;
+		} else {
+			dfa_output_address = "";
+			is_output = false;
+		}
+				
+		if !(is_word || is_output) {
 			return Rslt::Notodo;
 		}
 
 		let dfa = self.to_dfa();
-
 		
+		if is_output {
+			match crate::print_to_file(dfa.to_string(),dfa_output_address) {
+				Ok(()) => (),
+				Err(e) => return Rslt::Err(e)
+			}
+		}
+		if is_word {
+			return dfa.run(word);
+		} else {
+			return Rslt::Nop;
+		}
+	}
+	fn restore_alphabet(&self) -> String {
+		let mut chars:Vec<char> = vec!['a';self.alphabet.len()];
+		for c in self.alphabet.keys() {
+			chars[self.alphabet[c]-1] = *c;
+		}
+		return chars.into_iter().collect();
+	}
+}
 
-		return Rslt::Err(format!("not finished yet"));
+impl fmt::Display for NFA {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut output: String = String::new();
+		let alphabet = &self.restore_alphabet();
+		output.push_str(alphabet);
+		output.push('\n');
+		output.push_str(&(self.starting+1).to_string());
+		for state in &self.states {
+			output.push('\n');
+			output.push_str(&state.to_string(alphabet.chars().collect()));
+		}
+		write!(f,"{}",output)
 	}
 }
 

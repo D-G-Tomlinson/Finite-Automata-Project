@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use crate::Rslt;
+use std::fmt;
 
 #[derive(Clone)]
 pub struct DFA {
@@ -14,10 +15,8 @@ impl DFA {
     }
     
     pub fn run(&self, word:&str) -> Rslt {
-		
 		let mut current_state=self.starting;
 		for letter in word.chars() {
-			
 			if !self.alphabet_map.contains_key(&letter) {
 				return Rslt::Rej;//if a letter in the word is not in the alphabet, reject the word
 			}	
@@ -32,20 +31,6 @@ impl DFA {
 			false => Rslt::Rej
 		}
 		
-    }
-    pub fn format(&self) -> Vec<String> {
-		let mut output:Vec<String> = Vec::new();
-		output.push(DFA::format_alphabet(&self.alphabet_map));
-		output.push((self.starting+1).to_string());
-		for state in &self.states {
-			let mut line=String::new();
-			for transition in &state.transitions {
-				line.push_str(&format!("{},",transition+1));
-	    }
-			line.push_str(&state.accepting.to_string());
-			output.push(line);
-		}
-		return output;
     }
     
     fn format_alphabet(alphabet_map:&HashMap<char,usize>) -> String {
@@ -83,8 +68,22 @@ impl DFA {
 		}
 		return Ok(DFA::new(states,alphabet_map,starting));
 		
+	}
+
 }
 
+impl fmt::Display for DFA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut output:String = String::new();
+		output.push_str(&DFA::format_alphabet(&self.alphabet_map));
+		output.push('\n');
+		output.push_str(&(self.starting+1).to_string());
+		for state in &self.states {
+			output.push('\n');
+			output.push_str(&state.to_string());
+		}
+		write!(f, "{}",output)
+    }
 }
 
 #[derive(Clone)]
@@ -131,7 +130,18 @@ impl DFAState {
 	}
 
 }
+impl fmt::Display for DFAState {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let mut output:String=String::new();
+		for transition in &self.transitions {
+			output.push_str(&(transition+1).to_string());
+			output.push(',');
+		}
+		output.push_str(&self.accepting.to_string());
+		write!(f, "{}", output)
+	}
 
+}
 pub fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
     
     let word:&str;
@@ -154,12 +164,12 @@ pub fn alphabet_to_alphabet_map(alphabet:&str) -> Result<HashMap<char,usize>, St
 
     let mut i:usize = 0;
     for letter in alphabet.chars() {
-	if alphabet_map.contains_key(&letter) {
-	    return Err(format!("The alphabet contains a duplicate letter"));
-	} else {
-	    alphabet_map.insert(letter,i);
-	    i = i + 1;
-	}
+		if alphabet_map.contains_key(&letter) {
+			return Err(format!("The alphabet contains a duplicate letter"));
+		} else {
+			alphabet_map.insert(letter,i);
+			i = i + 1;
+		}
     }
     return Ok(alphabet_map);
 }

@@ -33,10 +33,10 @@ impl DFA {
 		
     }
     
-    fn format_alphabet(alphabet_map:&HashMap<char,usize>) -> String {
-		let mut chars:Vec<char> = vec!['a';alphabet_map.len()];
-		for k in alphabet_map.keys() {
-			chars[alphabet_map[k]] = *k;
+    fn format_alphabet(&self) -> String {
+		let mut chars:Vec<char> = vec!['a';self.alphabet_map.len()];
+		for k in self.alphabet_map.keys() {
+			chars[self.alphabet_map[k]] = *k;
 		}
 		return chars.into_iter().collect();
     }
@@ -75,7 +75,7 @@ impl DFA {
 impl fmt::Display for DFA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut output:String = String::new();
-		output.push_str(&DFA::format_alphabet(&self.alphabet_map));
+		output.push_str(&self.format_alphabet());
 		output.push('\n');
 		output.push_str(&(self.starting+1).to_string());
 		for state in &self.states {
@@ -164,9 +164,7 @@ pub fn alphabet_to_alphabet_map(alphabet:&str) -> Result<HashMap<char,usize>, St
 
     let mut i:usize = 0;
     for letter in alphabet.chars() {
-		if alphabet_map.contains_key(&letter) {
-			return Err(format!("The alphabet contains a duplicate letter"));
-		} else {
+		if !alphabet_map.contains_key(&letter) {
 			alphabet_map.insert(letter,i);
 			i = i + 1;
 		}

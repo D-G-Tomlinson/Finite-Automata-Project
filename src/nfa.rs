@@ -139,7 +139,7 @@ impl NFA {
 	fn get_alphabet_hm(alphabet:&str) -> HashMap<char,usize> {
 		let alphabet:Vec<char> = alphabet.chars().collect();
 		let mut alphabet_hashmap = HashMap::<char,usize>::new();
-		let mut i = 1; //0 represents the jump, which is the empty letter
+		let mut i = 0; //not to be read here, only passed to dfa so ignoring jump is fine
 		for c in &alphabet {
 			if !alphabet_hashmap.contains_key(c) {
 				alphabet_hashmap.insert(*c,i);
@@ -311,13 +311,9 @@ impl NFA {
 		}
 
 		let states:Vec<DFAState> = (0..state_table.len()).map(|i|DFAState::new(state_table[i].clone(),accepts[i])).collect();
-		let mut alphabet_map:HashMap<char,usize> = HashMap::new();
-		for k in self.alphabet.keys() {
-			alphabet_map.insert(*k,self.alphabet[k]-1);
-		}
 		let starting = 0;
 		
-		return DFA::new(states,alphabet_map,starting);
+		return DFA::new(states,self.alphabet.clone(),starting);
 	}
 	
 	pub fn run(&self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {

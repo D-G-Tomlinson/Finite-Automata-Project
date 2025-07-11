@@ -199,33 +199,34 @@ impl NFA {
 		return result;
 	}
 	
-	fn check_all_vec(input:&Vec<bool>) -> bool {
+	fn check_any_vec(input:&Vec<bool>) -> bool {
 		for i in input {
-			if !i {
-				return false;
+			if *i {
+				return true;
 			}
 		}
-		return true;
+		return false;
 	}
 	fn get_equivalents(&self) -> Vec<Vec<usize>> {		
 		let num_states = self.states.len();
 		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();
 		let mut changed =vec![true;num_states];
-		while !NFA::check_all_vec(&changed) {
+		while NFA::check_any_vec(&changed) {
+			let mut new_changed = vec![false;num_states];
 			for i in 0..num_states {
-				changed[i]=false;
 				for j in 0..num_states {
-					if changed[i] {
+					if eqs[i].contains(&j)  {
 						let v1 = &eqs[i];
 						let v2 = &eqs[j];
 						let new = NFA::ordered_union(&v1,&v2);
-						if v1 == &new {
-							changed[i]=true;
+						if v1 != &new {
+							new_changed[i]=true;
 							eqs[i]=new;
 						}
 					}
 				}
 			}
+			changed = new_changed;
 		}
 		return eqs;
 	}
@@ -284,8 +285,6 @@ impl NFA {
 		}
 		return false;
 	}
-
-	
 	fn to_dfa(&self) -> DFA {
 		let equivalents = self.get_equivalents();
 		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();

@@ -96,7 +96,7 @@ impl NFAState {
 	}
 }
 
-
+#[derive(Clone,Debug)]
 pub struct NFA {
 	states:Vec<NFAState>,
 	starting:usize,
@@ -366,6 +366,77 @@ impl NFA {
 		}
 		return chars.into_iter().collect();
 	}
+	pub fn get_accept_empty(alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+		let state = NFAState::new(vec![Vec::<usize>::new();alphabet.len()+1],true);
+		return Ok(NFA::new(vec![state],0,alphabet));
+	}
+	pub fn make_kstar(&mut self) {
+		let len = self.states.len();
+		for s in &mut self.states {
+			if s.accepting {
+				s.transitions[0].push(len);
+				s.accepting = false
+			}
+		}
+		let mut new_transitions:Vec<Vec<usize>> = vec![Vec::new();self.alphabet.len()+1];
+		new_transitions[0].push(self.starting);
+		self.states.push(NFAState::new(new_transitions,true));
+		self.starting = len;
+	}
+	pub fn get_accept_single(i:usize,alphabet:&HashMap<char,usize>) -> Result<NFA,String> {
+		let mut transitions = vec![Vec::<usize>::new();alphabet.len()+1];
+		transitions[i] = vec![1];
+		let start = NFAState::new(transitions,false);
+		let end = NFAState::new(vec![Vec::<usize>::new();alphabet.len()+1],true);
+		return Ok(NFA::new(vec![start,end],0,alphabet.clone()));
+	}
+
+	pub fn concat(r1:&mut NFA, r2:&mut NFA) -> Result<NFA, String> {
+		if r1.alphabet != r2.alphabet {
+			return Err(format!("Alphabet {:#?} does not match alphabet {:#?}",r1.alphabet,r2.alphabet));
+		}
+		let num_states = r1.states.len();
+		let second_start = r2.starting + num_states;
+		
+		for state in &mut r1.states {
+			if state.accepting {
+				state.transitions[0].push(second_start);
+				state.accepting = false;
+			}
+		}
+		
+		for state in &mut r2.states {
+			for t in &mut state.transitions {
+				for i in t {
+					*i = *i + num_states;
+				}
+			}
+		}
+		r1.states.append(&mut r2.states);
+		return Ok((*r1).clone());		
+	}
+
+	pub fn or(r1:&mut NFA, r2:&mut NFA) -> Result<NFA, String> {
+		let num_states = r1.states.len();
+		let second_start = r2.starting + num_states;
+		
+		for state in &mut r2.states {
+			for t in &mut state.transitions {
+				for i in t {
+					*i = *i + num_states;
+				}
+			}
+		}
+		r1.states.append(&mut r2.states);
+		let mut new_transitions = vec![Vec::<usize>::new();r1.alphabet.len()+1];
+		new_transitions[0].push(r1.starting);
+		new_transitions[0].push(second_start);
+		
+		r1.starting = r1.states.len();
+		r1.states.push(NFAState::new(new_transitions,false));
+		return Ok((*r1).clone());
+	}
+	
 }
 
 impl fmt::Display for NFA {

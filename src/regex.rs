@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use crate::Rslt;
-use crate::nfa::NFAState;
 use crate::nfa::NFA;
 
 struct Regex {
@@ -34,8 +33,8 @@ impl Regex {
 	}
 
 	pub fn to_nfa(&self) -> NFA{
-		let nfa_without_alphabet = self.tree.to_nfa(self.alphabet.len()+1);
-		return NFA::new(nfa_without_alphabet.states,nfa_without_alphabet.starting,self.alphabet.clone());
+		return self.tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error");
+
 	}
 	
 	pub fn run(&self,nfa_address:Option<&str>,dfa_address:Option<&str>,word:Option<&str>) -> Rslt {
@@ -315,136 +314,37 @@ fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessa
     return regex
 }
 */
-struct NFAForRegex {
-    states:Vec<NFAState>,
-    starting:usize
+fn get_kstar(r:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+    let mut sub = match r.to_nfa(alphabet) {
+		Ok(r) => r,
+		Err(e) => return Err(e)
+	};
+	sub.make_kstar();
+    return Ok(sub);
 }
 
-fn get_accept_e(alphabet_len:usize) -> NFAForRegex {
-    let state = NFAState {
-	transitions:vec![Vec::<usize>::new();alphabet_len],
-	accepting:true
-    };
-    NFAForRegex {
-	states: vec![state],
-	starting: 0
-    }
+fn get_concat(r1:&RegexTree, r2:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+    let mut r1 = match r1.to_nfa(alphabet.clone()) {
+		Ok(r) => r,
+		Err(e) => return Err(e)
+	};
+    let mut r2 = match r2.to_nfa(alphabet.clone()) {
+		Ok(r) => r,
+		Err(e) => return Err(e)
+	};
+	return NFA::concat(&mut r1,&mut r2);
 }
 
-fn get_accept_single(i:usize,alphabet_len:usize) -> NFAForRegex {
-    let mut transitions = vec![Vec::<usize>::new();alphabet_len];
-    transitions[i] = vec![1];
-    let start = NFAState {
-	transitions,
-	accepting:false
-    };
-    let end = NFAState {
-	transitions:vec![Vec::<usize>::new();alphabet_len],
-	accepting:true
-    };
-    NFAForRegex {
-	states:vec![start,end],
-	starting: 0
-    }
-}
-
-fn get_kstar(r:&RegexTree, alphabet_len:usize ) -> NFAForRegex {
-    let mut sub =  r.to_nfa(alphabet_len);
-    let start = sub.starting;
-    let len = sub.states.len();
-    for s in &mut sub.states {
-	if s.accepting {
-	    s.transitions[0].push(len);
-	    s.accepting = false;
-	}
-    }
-    let mut new_transitions = vec![Vec::new();alphabet_len];
-    new_transitions[0].push(start);
-    sub.states.push(NFAState{
-	transitions:new_transitions,
-	accepting:true
-    });
-    sub.starting = len;
-    return sub;
-}
-
-fn get_concat(r1:&RegexTree, r2:&RegexTree, alphabet_len:usize) -> NFAForRegex {
-    let mut r1 = r1.to_nfa(alphabet_len);
-    let mut r2 = r2.to_nfa(alphabet_len);
-
-    let num_states = r1.states.len();
-    let second_start = r2.starting + num_states;
-
-    for state in &mut r1.states {
-	if state.accepting {
-	    state.transitions[0].push(second_start);
-	    state.accepting = false;
-	}
-    }
-
-    for state in &mut r2.states {
-	for t in &mut state.transitions {
-	    for i in t {
-		*i = *i + num_states;
-	    }
-	}
-    }
-    r1.states.append(&mut r2.states);
-    return r1;
-}
-
-fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet_len:usize) -> NFAForRegex {
-    let mut r1 = r1.to_nfa(alphabet_len);
-    let mut r2 = r2.to_nfa(alphabet_len);
-
-    let num_states = r1.states.len();
-    let second_start = r2.starting + num_states;
-
-    for state in &mut r2.states {
-	for t in &mut state.transitions {
-	    for i in t {
-		*i = *i + num_states;
-	    }
-	}
-    }
-    r1.states.append(&mut r2.states);
-    let mut new_transitions = vec![Vec::<usize>::new();alphabet_len];
-    new_transitions[0].push(r1.starting);
-    new_transitions[0].push(second_start);
-
-    r1.starting = r1.states.len();
-    r1.states.push(NFAState {
-	transitions:new_transitions,
-	accepting:false	
-    });
-    return r1;
-}
-
-fn nfa_for_regex_to_nfa(regex:NFAForRegex,alphabet:String) -> Vec<String> {
-    let mut result:Vec<String> = Vec::new();
-    result.push(alphabet.clone());    
-    let alphabet:Vec<char> = alphabet.chars().collect();
-
-    result.push((regex.starting + 1).to_string());
-
-    for state in regex.states {
-	println!("State is {state:?}");
-	let mut line = String::new();
-	//
-	for i in &state.transitions[0] {
-	    line.push_str(&format!(":{},",i+1));
-	}
-	
-	for t in 0..alphabet.len() {
-	    for i in &state.transitions[t+1] {
-		line.push_str(&format!("{}:{},",alphabet[t],i+1));
-	    }
-	}
-	line.push_str(&state.accepting.to_string());
-	result.push(line);
-    }
-    
-    return result;
+fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+	    let mut r1 = match r1.to_nfa(alphabet.clone()) {
+		Ok(r) => r,
+		Err(e) => return Err(e)
+	};
+    let mut r2 = match r2.to_nfa(alphabet.clone()) {
+		Ok(r) => r,
+		Err(e) => return Err(e)
+	};
+	return NFA::or(&mut r1,&mut r2);
 }
 
 #[derive(Clone,Debug)]
@@ -458,16 +358,16 @@ enum RegexTree {
     Or((Box<RegexTree>,Box<RegexTree>)),
 }
 impl RegexTree {
-	fn to_nfa(&self,a:usize) -> NFAForRegex {
-		match &self {
-			RegexTree::Empty => get_accept_e(a),
-			RegexTree::Single(i) => get_accept_single(*i,a),
+	fn to_nfa(&self,a:HashMap<char,usize>) -> Result<NFA,String> {
+		return match &self {
+			RegexTree::Empty => NFA::get_accept_empty(a.clone()),
+			RegexTree::Single(i) => NFA::get_accept_single(*i,&a),
 			RegexTree::KleeneStar(r) => get_kstar(&*r, a),
 			RegexTree::KleenePlus(r) => get_concat(&(**r).clone(),&RegexTree::KleeneStar(Box::new((**r).clone())),a),
 			RegexTree::QMark(r) => get_or(&RegexTree::Empty,&**r,a),
 			RegexTree::Concat((r1,r2)) => get_concat(&**r1, &**r2,a),
 			RegexTree::Or((r1, r2)) => get_or(&**r1,&**r2,a)
-		}
+		};
 	}
 
 }

@@ -66,7 +66,6 @@ pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Opti
 			return Rslt::Err(format!("Can only DFA output write to .dfa files"));
 		}
     }
-	
 
     if let Some(in_output) = output_nfa_in {
 		let file_type = in_output.split('.').last().unwrap().to_uppercase();

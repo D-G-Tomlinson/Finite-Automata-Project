@@ -199,14 +199,6 @@ impl NFA {
 		return result;
 	}
 	
-	fn check_any_vec(input:&Vec<bool>) -> bool {
-		for i in input {
-			if *i {
-				return true;
-			}
-		}
-		return false;
-	}
 	fn get_equivalents(&self) -> Vec<Vec<usize>> {		
 		let num_states = self.states.len();
 		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();

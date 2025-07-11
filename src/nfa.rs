@@ -77,7 +77,6 @@ impl NFAState {
 		for i in 0..transitions.len() {
 			transitions[i].sort();
 		}
-		println!("From {}, we get transitions: {:#?}",line,transitions);
 		return Ok(NFAState::new(transitions,accepting));
 	}
 	fn to_string(&self, alphabet:Vec<char>) -> String {
@@ -91,6 +90,11 @@ impl NFAState {
 				output.push(',');
 			}			
 		}
+		for goal in &self.transitions[0] {
+			output.push(':');
+			output.push_str(&(goal+1).to_string());
+			output.push(';');
+		}		
 		output.push_str(&self.accepting.to_string());
 		return output;
 	}
@@ -243,7 +247,6 @@ impl NFA {
 			let next_states =NFA::get_equivalents_vec(next,equivalents);
 			result = NFA::ordered_union(&result, &next_states);
 		}
-		println!("From {}, by {}, gets to {:#?}",from,by,result);
 		return result;
 	}
 
@@ -285,7 +288,6 @@ impl NFA {
 	
 	fn to_dfa(&self) -> DFA {
 		let equivalents = self.get_equivalents();
-		println!("Equivalents are: {:#?}",equivalents);
 		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
 		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();
 		let mut state_table:Vec<Vec<usize>> = Vec::new();
@@ -293,16 +295,11 @@ impl NFA {
 		
 		let first_state = &equivalents[self.starting];
 		self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&first_state,&equivalents);
-
-		println!("The alphabet is: {:#?}",self.alphabet);
-		
 		while !frontier.is_empty() {
 			let current = NFA::get_equivalents_vec(&frontier.pop_front().unwrap(),&equivalents);
-			println!("Current state-set is: {:#?}",current);
 			let current_row = new_states[&current];			
 			for i in 1..self.alphabet.len() + 1 {
 				let next = self.get_to_vec(&current,i,&equivalents);
-				println!("With option {}, it gets to {:#?}",i,next);
 				if !new_states.contains_key(&next) {
 					self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next,&equivalents);
 				}
@@ -362,7 +359,7 @@ impl NFA {
 	fn restore_alphabet(&self) -> String {
 		let mut chars:Vec<char> = vec!['a';self.alphabet.len()];
 		for c in self.alphabet.keys() {
-			chars[self.alphabet[c]-1] = *c;
+			chars[self.alphabet[c]] = *c;
 		}
 		return chars.into_iter().collect();
 	}
@@ -385,7 +382,7 @@ impl NFA {
 	}
 	pub fn get_accept_single(i:usize,alphabet:&HashMap<char,usize>) -> Result<NFA,String> {
 		let mut transitions = vec![Vec::<usize>::new();alphabet.len()+1];
-		transitions[i] = vec![1];
+		transitions[i+1] = vec![1];
 		let start = NFAState::new(transitions,false);
 		let end = NFAState::new(vec![Vec::<usize>::new();alphabet.len()+1],true);
 		return Ok(NFA::new(vec![start,end],0,alphabet.clone()));

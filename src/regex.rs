@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use crate::Rslt;
 use crate::nfa::NFA;
 
+#[derive(Clone,Debug)]
 struct Regex {
 	alphabet:HashMap<char,usize>,
 	tree:RegexTree
@@ -45,13 +46,10 @@ impl Regex {
 				Err(e) => return Rslt::Err(e)
 			}
 		}
-		
 		if word.is_some() || dfa_address.is_some() {
 			return result_nfa.run(word,dfa_address);
 		}
-		
 		return Rslt::Nop;
-		
 	}
 	
 }
@@ -81,7 +79,6 @@ pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Opti
 		Ok(reg) => reg,
 		Err(e) => return Rslt::Err(e)
 	};
-    
 	return regex.run(output_nfa_in,output_dfa,input_word);
 	
 }

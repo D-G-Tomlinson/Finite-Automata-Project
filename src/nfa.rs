@@ -210,9 +210,9 @@ impl NFA {
 	fn get_equivalents(&self) -> Vec<Vec<usize>> {		
 		let num_states = self.states.len();
 		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();
-		let mut changed =vec![true;num_states];
-		while NFA::check_any_vec(&changed) {
-			let mut new_changed = vec![false;num_states];
+		let mut changed = true;
+		while changed {
+			changed = false;
 			for i in 0..num_states {
 				for j in 0..num_states {
 					if eqs[i].contains(&j)  {
@@ -220,13 +220,12 @@ impl NFA {
 						let v2 = &eqs[j];
 						let new = NFA::ordered_union(&v1,&v2);
 						if v1 != &new {
-							new_changed[i]=true;
+							changed=true;
 							eqs[i]=new;
 						}
 					}
 				}
 			}
-			changed = new_changed;
 		}
 		return eqs;
 	}

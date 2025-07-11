@@ -11,7 +11,7 @@ pub struct DFA {
 
 impl DFA {
     pub fn new(states:Vec<DFAState>, alphabet_map:HashMap<char,usize>,starting:usize) -> DFA {
-		return DFA{states, alphabet_map, starting};
+		DFA{states, alphabet_map, starting}
     }
     
     pub fn run(&self, word:&str) -> Rslt {
@@ -94,7 +94,7 @@ pub struct DFAState {
 
 impl DFAState {
     pub fn new(transitions:Vec<usize>,accepting:bool) -> DFAState {
-		return DFAState{transitions, accepting};
+		DFAState{transitions, accepting}
     }
 	fn from_line(line:&String,num_letters:usize,num_states:usize) -> Result<DFAState,String> {
 		let split_state:Vec<&str> = line.split(",").collect();

@@ -5,7 +5,7 @@ use crate::Rslt;
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct NFAState {
     transitions:Vec<Vec<usize>>,
     accepting:bool,
@@ -13,7 +13,7 @@ pub struct NFAState {
 
 impl NFAState {
     pub fn new(transitions:Vec<Vec<usize>>,accepting:bool) -> NFAState {
-		return NFAState{transitions,accepting};
+		NFAState{transitions,accepting}
     }
 
 	fn get_transition(transition:&&str,alphabet:&HashMap<char,usize>,num_states:usize) -> Result<(usize,usize),String> {
@@ -105,7 +105,7 @@ pub struct NFA {
 
 impl NFA {
 	pub fn new(states:Vec<NFAState>,starting:usize,alphabet:HashMap<char,usize>) -> NFA {
-		return NFA{states, starting, alphabet};
+		NFA{states, starting, alphabet}
 	}
 	pub fn from_lines(lines:Vec<String>) -> Result<NFA,String> {
 		let num_lines = lines.len();

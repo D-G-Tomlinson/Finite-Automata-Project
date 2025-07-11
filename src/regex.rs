@@ -1,3 +1,4 @@
+use std::fmt;
 use std::collections::HashMap;
 use crate::Rslt;
 use crate::nfa::NFA;
@@ -35,7 +36,6 @@ impl Regex {
 
 	pub fn to_nfa(&self) -> NFA{
 		return self.tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error");
-
 	}
 	
 	pub fn run(&self,nfa_address:Option<&str>,dfa_address:Option<&str>,word:Option<&str>) -> Rslt {
@@ -85,7 +85,21 @@ impl Regex {
 		}
 		return Ok((regex, alphabet.iter().cloned().collect()));
 	}
-	
+	fn restore_alphabet(&self) -> Vec<char> {
+		let mut chars:Vec<char> = vec!['a';self.alphabet.len()];
+		for c in self.alphabet.keys() {
+			chars[self.alphabet[c]] = *c;
+		}
+		return chars;
+		
+	}
+}
+impl fmt::Display for Regex {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let alphabet = self.restore_alphabet();
+		let output = self.tree.to_string(&alphabet);
+		write!(f,"{}",output)
+	}
 }
 
 pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Option<&str>, input_word:Option<&str>) -> Rslt {
@@ -113,6 +127,7 @@ pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Opti
 		Ok(reg) => reg,
 		Err(e) => return Rslt::Err(e)
 	};
+	println!("The regex is {}",regex.to_string());
 	return regex.run(output_nfa_in,output_dfa,input_word);
 	
 }
@@ -363,7 +378,53 @@ impl RegexTree {
 			return RegexTree::Empty; //can't be reached due to earlier code
 		}
 	}
+
+	fn opp_to_string(opp:char, child:&RegexTree,alphabet:&Vec<char>) -> String {//regex is a mix of infix and postfix notation so brackets need to be added where appropriate
+		let mut result = String::new();
+		//need brackets around ors or concats
+
+		match child {
+			RegexTree::Empty => return String::new(),
+			RegexTree::Single(_)|RegexTree::KleeneStar(_)|RegexTree::KleenePlus(_)|RegexTree::QMark(_) => result.push_str(&child.to_string(alphabet)),
+			RegexTree::Concat(_)|RegexTree::Or(_) => {
+				result.push('(');
+				result.push_str(&child.to_string(alphabet));
+				result.push(')');
+			},
+		}
+		result.push(opp);
+		return result;
+	}
+
+	fn concat_to_string(r1:&RegexTree,r2:&RegexTree,alphabet:&Vec<char>) -> String{
+		let mut s1 = match r1 {
+			RegexTree::Or(_) => {
+				format!("({})",r1.to_string(alphabet))
+			},
+			_ => r1.to_string(alphabet)
+		};
+
+		let s2 = match r2 {
+			RegexTree::Or(_) => {
+				format!("({})",r2.to_string(alphabet))
+			},
+			_ => r2.to_string(alphabet)
+		};
+		s1.push_str(&s2);
+		return s1;
+	}
 	
+	pub fn to_string(&self, alphabet:&Vec<char>) -> String {
+		return match &self {
+			RegexTree::Empty => String::new(),
+			RegexTree::Single(i) => alphabet[*i].to_string(),
+			RegexTree::KleeneStar(r) => RegexTree::opp_to_string('*',&**r,alphabet),
+			RegexTree::KleenePlus(r) => RegexTree::opp_to_string('+',&**r,alphabet),
+			RegexTree::QMark(r) => RegexTree::opp_to_string('?',&**r,alphabet),
+			RegexTree::Concat((r1,r2)) => RegexTree::concat_to_string(&**r1,&**r2,alphabet),
+			RegexTree::Or((r1,r2)) => format!("{}|{}",r1.to_string(alphabet),r2.to_string(alphabet)),
+		}
+	}
 }
 
 

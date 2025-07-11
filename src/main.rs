@@ -80,32 +80,32 @@ fn main() {
     let output_nfa = cli.nfa_output.as_deref();
     
     let result:Rslt = match input_type {
-	InputType::DFA => dfa::dfa_option(lines, input_word),
-	InputType::NFA => nfa::nfa_option(lines, input_word, output_dfa),
-	InputType::REGEX => Rslt::Err(format!("Not implemented yet"))//regex::run_regex(regex_in, output_dfa, output_nfa, input_word)
+		InputType::DFA => dfa::dfa_option(lines, input_word),
+		InputType::NFA => nfa::nfa_option(lines, input_word, output_dfa),
+		InputType::REGEX => regex::regex_option(regex_in,output_dfa,output_nfa,input_word)
     };
     
     println!("{}", match result {
-	Rslt::Err(e) => format!("Program failed! The following error was produced: \n{}",e),
-	Rslt::Acc => format!("ACCEPT"),
-	Rslt::Rej => format!("REJECT"),
-	Rslt::Nop => format!("No word provided, program finished without computation, only conversion."),
-	Rslt::Notodo => format!("No word or output file provided, nothing to do.")
+		Rslt::Err(e) => format!("Program failed! The following error was produced: \n{}",e),
+		Rslt::Acc => format!("ACCEPT"),
+		Rslt::Rej => format!("REJECT"),
+		Rslt::Nop => format!("No word provided, program finished without computation, only conversion."),
+		Rslt::Notodo => format!("No word or output file provided, nothing to do.")
     });
     return;
 }
 
 fn get_type_lines(input: Option<&str>, is_regex:bool) -> Result<(InputType, Vec<String>),String> {
     if let Some(address) = input {
-	if is_regex {
-	    return Err(format!("No input file for regex operations."));
-	} else {
-	    return read_input_file(address);
-	}
+		if is_regex {
+			return Err(format!("No input file for regex operations."));
+		} else {
+			return read_input_file(address);
+		}
     } else if is_regex {
-	return Ok((InputType::REGEX, Vec::new()));
+		return Ok((InputType::REGEX, Vec::new()));
     } else {
-	return Err(format!("No automata or regex provided."));
+		return Err(format!("No automata or regex provided."));
     }
 }
 
@@ -113,11 +113,11 @@ fn read_input_file(address:&str) -> Result<(InputType, Vec<String>),String> {
     let file_type = address.split('.').last().unwrap().to_uppercase();
     let input_type:InputType;
     match file_type.as_str() {
-	"DFA" => input_type = InputType::DFA,
-	"NFA" => input_type = InputType::NFA,
-	_ => {
-	    return Err(format!("File type is unsupported."));
-	}
+		"DFA" => input_type = InputType::DFA,
+		"NFA" => input_type = InputType::NFA,
+		_ => {
+			return Err(format!("File type is unsupported."));
+		}
     }    
     let mut contents= String::new();
     match File::open(address) {

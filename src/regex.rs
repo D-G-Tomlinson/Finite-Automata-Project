@@ -5,33 +5,29 @@ use crate::nfa::NFA;
 
 #[derive(Clone,Debug)]
 struct Regex {
-	alphabet:HashMap<char,usize>,
+	alphabet:String,
 	tree:RegexTree
 }
 
 impl Regex {
-	pub fn new(alphabet:HashMap<char,usize>, tree:RegexTree) -> Regex {
+	pub fn new(alphabet:String, tree:RegexTree) -> Regex {
 		Regex{alphabet,tree}
 	}
 	pub fn from_string(regex_in:String) -> Result<Regex,String> {
 		let regex_in:Vec<char>=regex_in.chars().collect();
-		let (regex, alphabet): (Vec<char>, String);
-		match Regex::validate_regex(regex_in) {
+		let (regex, alphabet): (Vec<char>, String) =	match Regex::validate_regex(regex_in) {
 			Err(e) => return Err(format!("Invalid regex. {}",e)),
-			Ok((a,b)) => (regex,alphabet) = (a,b)
-		}
-		let collected_alphabet:Vec<char> = alphabet.chars().collect();
-		let mut alphabet_hashmap:HashMap<char,usize> = HashMap::new();
-		let mut i = 0;
-		for c in collected_alphabet {
-			alphabet_hashmap.insert(c,i);
-			i = i + 1;
-		}
-		
+			Ok((a,b)) =>  (a,b)
+		};
+		let alphabet = match crate::get_alphabet(&alphabet) {
+			Err(e) => return Err(e),
+			Ok(ab) => ab
+		};
+		let alphabet_hashmap = crate::get_alphabet_hm(&alphabet);
 		let regex:Vec<InProgress> = regex.iter().map(|c| InProgress::from_char(*c,&alphabet_hashmap)).collect();
 		
 		let regex = RegexTree::from_in_progress(regex);
-		return Ok(Regex::new(alphabet_hashmap, regex));
+		return Ok(Regex::new(alphabet, regex));
 	}
 
 	pub fn to_nfa(&self) -> NFA{
@@ -55,14 +51,10 @@ impl Regex {
 	fn validate_regex(regex:Vec<char>) -> Result<(Vec<char>,String),String> {
 		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
 		let valid_symbols = vec!['(',')','|','+','?','*'];
-		let invalid_letters = vec![':',','];
 		
 		let mut alphabet:Vec<char> = Vec::new();
 		let mut depth=0;
 		for c in &regex {
-			if invalid_letters.contains(c) {
-				return Err(format!("The letter {} is invalid in the regex",c));
-			}
 			if *c == '(' {
 			depth += 1;
 			} else if *c == ')' {
@@ -85,19 +77,12 @@ impl Regex {
 		}
 		return Ok((regex, alphabet.iter().cloned().collect()));
 	}
-	fn restore_alphabet(&self) -> Vec<char> {
-		let mut chars:Vec<char> = vec!['a';self.alphabet.len()];
-		for c in self.alphabet.keys() {
-			chars[self.alphabet[c]] = *c;
-		}
-		return chars;
-		
-	}
+
 }
 impl fmt::Display for Regex {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let alphabet = self.restore_alphabet();
-		let output = self.tree.to_string(&alphabet);
+		let alphabet = &self.alphabet;
+		let output = self.tree.to_string(&alphabet.chars().collect());
 		write!(f,"{}",output)
 	}
 }
@@ -156,7 +141,7 @@ fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessa
     return regex
 }
 */
-fn get_kstar(r:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+fn get_kstar(r:&RegexTree, alphabet:String) -> Result<NFA,String> {
     let mut sub = match r.to_nfa(alphabet) {
 		Ok(r) => r,
 		Err(e) => return Err(e)
@@ -165,19 +150,19 @@ fn get_kstar(r:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
     return Ok(sub);
 }
 
-fn get_concat(r1:&RegexTree, r2:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+fn get_concat(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
     let mut r1 = match r1.to_nfa(alphabet.clone()) {
 		Ok(r) => r,
 		Err(e) => return Err(e)
 	};
-    let mut r2 = match r2.to_nfa(alphabet.clone()) {
+    let mut r2 = match r2.to_nfa(alphabet) {
 		Ok(r) => r,
 		Err(e) => return Err(e)
 	};
 	return NFA::concat(&mut r1,&mut r2);
 }
 
-fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:HashMap<char,usize>) -> Result<NFA,String> {
+fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
 	    let mut r1 = match r1.to_nfa(alphabet.clone()) {
 		Ok(r) => r,
 		Err(e) => return Err(e)
@@ -200,10 +185,10 @@ enum RegexTree {
     Or((Box<RegexTree>,Box<RegexTree>)),
 }
 impl RegexTree {
-	fn to_nfa(&self,a:HashMap<char,usize>) -> Result<NFA,String> {
+	fn to_nfa(&self,a:String) -> Result<NFA,String> {
 		return match &self {
-			RegexTree::Empty => NFA::get_accept_empty(a.clone()),
-			RegexTree::Single(i) => NFA::get_accept_single(*i,&a),
+			RegexTree::Empty => NFA::get_accept_empty(a),
+			RegexTree::Single(i) => NFA::get_accept_single(*i,a),
 			RegexTree::KleeneStar(r) => get_kstar(&*r, a),
 			RegexTree::KleenePlus(r) => get_concat(&(**r).clone(),&RegexTree::KleeneStar(Box::new((**r).clone())),a),
 			RegexTree::QMark(r) => get_or(&RegexTree::Empty,&**r,a),

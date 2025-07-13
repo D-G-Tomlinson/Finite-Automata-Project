@@ -2,6 +2,7 @@ mod dfa;
 mod nfa;
 mod regex;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -139,4 +140,34 @@ fn print_to_file(val:String,address:&str) -> Result<(),String> {
 		}
     }
     return Ok(());
+}
+
+
+pub fn get_alphabet(alphabet:&str) -> Result<String,String> {
+	let invalid_letters = vec![':',','];
+	let mut result:Vec<char> = Vec::new();
+	for c in alphabet.chars() {
+		if invalid_letters.contains(&c) {
+			return Err(format!("The alphabet cannot contain {}",c));
+		} 
+		if !result.contains(&c) {
+			result.push(c);
+		}
+	}
+	return Ok(result.into_iter().collect());
+}
+
+pub fn get_alphabet_hm(alphabet:&str) -> HashMap<char,usize> {
+
+	let alphabet = alphabet.chars();
+	
+	let mut alphabet_hashmap = HashMap::<char,usize>::new();
+	let mut i = 0; //not to be read here, only passed to dfa so ignoring jump is fine
+	for c in alphabet {
+		if !alphabet_hashmap.contains_key(&c) {
+			alphabet_hashmap.insert(c,i);
+			i = i + 1;
+		}
+	}
+	return alphabet_hashmap;
 }

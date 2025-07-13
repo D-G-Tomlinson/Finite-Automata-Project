@@ -1,26 +1,26 @@
-use std::collections::HashMap;
 use crate::Rslt;
 use std::fmt;
 
 #[derive(Clone)]
 pub struct DFA {
     states: Vec<DFAState>,
-    alphabet_map: HashMap<char,usize>,
+    alphabet:String,
     starting:usize	
 }
 
 impl DFA {
-    pub fn new(states:Vec<DFAState>, alphabet_map:HashMap<char,usize>,starting:usize) -> DFA {
-		DFA{states, alphabet_map, starting}
+    pub fn new(states:Vec<DFAState>, alphabet:String,starting:usize) -> DFA {
+		DFA{states, alphabet, starting}
     }
     
     pub fn run(&self, word:&str) -> Rslt {
+		let alphabet_map = crate::get_alphabet_hm(&self.alphabet);
 		let mut current_state=self.starting;
 		for letter in word.chars() {
-			if !self.alphabet_map.contains_key(&letter) {
+			if !alphabet_map.contains_key(&letter) {
 				return Rslt::Rej;//if a letter in the word is not in the alphabet, reject the word
 			}	
-			let equivalent = self.alphabet_map[&letter];
+			let equivalent = alphabet_map[&letter];
 			let current_state_obj = &self.states[current_state];
 			let edges = &current_state_obj.transitions;
 			current_state = edges[equivalent];
@@ -33,27 +33,15 @@ impl DFA {
 		
     }
     
-    fn format_alphabet(&self) -> String {
-		let mut chars:Vec<char> = vec!['a';self.alphabet_map.len()];
-		for k in self.alphabet_map.keys() {
-			chars[self.alphabet_map[k]] = *k;
-		}
-		return chars.into_iter().collect();
-    }
-    
-    
 	fn from_lines(lines:Vec<String>) -> Result<DFA,String> {
 		if lines.len()<3 {
 			return Err(format!("Input file is too short"));
 		}
 		
-		let alphabet = &lines[0];
-		let alphabet_map;
-		match alphabet_to_alphabet_map(alphabet) {
-			Ok(am) => alphabet_map = am,
-			Err(e) => return Err(e)
-		}
-		
+		let alphabet = match crate::get_alphabet(&lines[0]) {
+			Err(e) => return Err(e),
+			Ok(ab) => ab
+		};
 		let starting = lines[1].parse::<usize>().unwrap()-1;   
 		
 		let num_states = lines.len()-2;
@@ -66,7 +54,7 @@ impl DFA {
 				Ok(new_state)=> states.push(new_state)
 			}
 		}
-		return Ok(DFA::new(states,alphabet_map,starting));
+		return Ok(DFA::new(states,alphabet,starting));
 		
 	}
 
@@ -75,7 +63,7 @@ impl DFA {
 impl fmt::Display for DFA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let mut output:String = String::new();
-		output.push_str(&self.format_alphabet());
+		output.push_str(&self.alphabet);
 		output.push('\n');
 		output.push_str(&(self.starting+1).to_string());
 		for state in &self.states {
@@ -158,17 +146,3 @@ pub fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
     }
     return dfa.run(word);
 }
-
-pub fn alphabet_to_alphabet_map(alphabet:&str) -> Result<HashMap<char,usize>, String> {
-    let mut alphabet_map:HashMap<char,usize> = HashMap::new();
-
-    let mut i:usize = 0;
-    for letter in alphabet.chars() {
-		if !alphabet_map.contains_key(&letter) {
-			alphabet_map.insert(letter,i);
-			i = i + 1;
-		}
-    }
-    return Ok(alphabet_map);
-}
-

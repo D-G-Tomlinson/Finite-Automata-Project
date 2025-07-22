@@ -343,6 +343,13 @@ impl NFA {
 			return Rslt::Nop;
 		}
 	}
+
+	pub fn get_never_accept(alphabet:String) -> NFA {
+		let states = vec![NFAState::new(vec![],false)];
+		let starting = 0;
+		return NFA::new(states,starting,alphabet);
+	}
+	
 	pub fn get_accept_empty(alphabet:String) -> Result<NFA,String> {
 		let state = NFAState::new(vec![Vec::<usize>::new();alphabet.len()+1],true);
 		return Ok(NFA::new(vec![state],0,alphabet));

@@ -6,11 +6,11 @@ use crate::nfa::NFA;
 #[derive(Clone,Debug)]
 pub struct Regex {
 	alphabet:String,
-	tree:RegexTree
+	tree:Option<RegexTree>
 }
 
 impl Regex {
-	pub fn new(alphabet:String, tree:RegexTree) -> Regex {
+	pub fn new(alphabet:String, tree:Option<RegexTree>) -> Regex {
 		Regex{alphabet,tree}
 	}
 	pub fn from_string(regex_in:String) -> Result<Regex,String> {
@@ -27,11 +27,14 @@ impl Regex {
 		let regex:Vec<InProgress> = regex.iter().map(|c| InProgress::from_char(*c,&alphabet_hashmap)).collect();
 		
 		let regex = RegexTree::from_in_progress(regex);
-		return Ok(Regex::new(alphabet, regex));
+		return Ok(Regex::new(alphabet, Some(regex)));
 	}
 
 	pub fn to_nfa(&self) -> NFA{
-		return self.tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error");
+		return match &self.tree {
+			None => NFA::get_never_accept(self.alphabet.clone()),
+			Some(tree) => tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error")
+		};
 	}
 	
 	pub fn run(&self,nfa_address:Option<&str>,dfa_address:Option<&str>,word:Option<&str>) -> Rslt {
@@ -82,7 +85,10 @@ impl Regex {
 impl fmt::Display for Regex {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let alphabet = &self.alphabet;
-		let output = self.tree.to_string(&alphabet.chars().collect());
+		let output = match &self.tree {
+			None => String::new(),
+			Some(tree) => tree.to_string(&alphabet.chars().collect())
+		};
 		write!(f,"{}",output)
 	}
 }

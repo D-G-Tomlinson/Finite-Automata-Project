@@ -1,12 +1,12 @@
 ab
 6
 a:2,false
-e:6,false
+:6,false
 b:4,false
-e:6,false
-e:1,e:3,false
-e:5,e:7,false
+:6,false
+:1,:3,false
+:5,:7,false
 a:8,false
-e:9,false
+:9,false
 b:10,false
 true

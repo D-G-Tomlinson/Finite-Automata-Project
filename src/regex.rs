@@ -118,7 +118,6 @@ pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Opti
 		Ok(reg) => reg,
 		Err(e) => return Rslt::Err(e)
 	};
-	println!("The regex is {}",regex.to_string());
 	return regex.run(output_nfa_in,output_dfa,input_word);
 	
 }

@@ -33,7 +33,7 @@ impl NFAState {
 			0 => 0,
 			1 => {
 				if alphabet.contains_key(&chars[0]) {
-					alphabet[&chars[0]] as usize
+					alphabet[&chars[0]] + 1 as usize//must be plus one because zero represents jump
 				} else {
 					return Err(format!("The transition letter must be in the alphabet"));
 				}
@@ -285,7 +285,7 @@ impl NFA {
 		while !frontier.is_empty() {
 			let current = NFA::get_equivalents_vec(&frontier.pop_front().unwrap(),&equivalents);
 			let current_row = new_states[&current];			
-			for i in 1..num_letters {
+			for i in 1..(num_letters+1) {
 				let next = self.get_to_vec(&current,i,&equivalents);
 				if !new_states.contains_key(&next) {
 					self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next,&equivalents);

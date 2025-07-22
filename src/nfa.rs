@@ -75,7 +75,7 @@ impl NFAState {
 		}
 		let accepting:bool = match comma_split[num_parts -1].parse() {
 			Ok(a) => a,
-			Err(_)  => return Err(format!("Poorly formatted accepting value"))
+			Err(_)  => return Err(format!("Poorly formatted accepting value. Line is {}, value is{}",line,comma_split[num_parts -1]))
 		};
 		for i in 0..transitions.len() {
 			transitions[i].sort();
@@ -96,7 +96,7 @@ impl NFAState {
 		for goal in &self.transitions[0] {
 			output.push(':');
 			output.push_str(&(goal+1).to_string());
-			output.push(';');
+			output.push(',');
 		}		
 		output.push_str(&self.accepting.to_string());
 		return output;

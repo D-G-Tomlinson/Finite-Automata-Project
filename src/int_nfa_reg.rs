@@ -7,7 +7,6 @@ pub fn nfa_to_regex(nfa:&NFA) -> Regex {
 	let alphabet:String=nfa.alphabet.clone();
 
 	let mut table = get_2d_array(nfa);
-
 	for i in 0..(table.len()-1) {
 		bypass_state(&mut table,i);
 	}
@@ -24,22 +23,23 @@ fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:usize) {
 	for state in (line+1)..table.len() {
 		if let Some(original) = &table[state][line] {
 			//does go to state we're removing
-			
-			if let Some(l) = &self_loop {
-				let start = RegexTree::Concat((Box::new(original.clone()),Box::new(RegexTree::KleeneStar(Box::new(l.clone())))));
-				for (way,destination) in &leaving {
-					table[state][*destination] = match &table[state][*destination] {
-						None => Some(
-							RegexTree::Concat((Box::new(start.clone()),Box::new((*way).clone())))),
-						Some(rt) => Some(
+			let start:RegexTree = match &self_loop {
+				Some(l) => RegexTree::Concat((Box::new(original.clone()),Box::new(RegexTree::KleeneStar(Box::new(l.clone()))))),
+				None => original.clone()
+			};
+			for (way,destination) in &leaving {
+				table[state][*destination] = match &table[state][*destination] {
+					None => Some(
+						RegexTree::Concat((Box::new(start.clone()),Box::new((*way).clone())))),
+					Some(rt) => Some(
 							RegexTree::Or((
 								Box::new(rt.clone()),
 								Box::new(RegexTree::Concat((Box::new(start.clone()),Box::new((*way).clone()))))
 							))
-						)
-					}
+					)
 				}
 			}
+			
 			// just to be sure
 			table[state][line]=None;
 			
@@ -76,13 +76,26 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 	if state.accepting {
 		result[size-1] = Some(RegexTree::Empty);
 	}
-
 	let num_letters = state.transitions.len();
+
+	let letter = 0;
+	for next in &state.transitions[letter] {
+		result[*next] = match &result[*next] {
+			None => Some(RegexTree::Empty),
+			Some(rt) => Some(
+				RegexTree::Or((
+					Box::new(rt.clone()),
+					Box::new(RegexTree::Single(letter))
+				))
+			)
+		};
+	}
 	
-	for letter in 0..num_letters {
+	
+	for letter in 1..num_letters {
 		for next in &state.transitions[letter] {
 			result[*next] = match &result[*next] {
-				None => Some(RegexTree::Single(letter)),
+				None => Some(RegexTree::Single(letter-1)),
 				Some(rt) => Some(
 					RegexTree::Or((
 						Box::new(rt.clone()),

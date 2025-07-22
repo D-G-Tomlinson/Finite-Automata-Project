@@ -445,6 +445,8 @@ pub fn nfa_option(lines:Vec<String>, input_word:Option<&str>, output_dfa:Option<
 		Ok(n) => nfa = n,
 		Err(e) => return Rslt::Err(e)
     }
+	let reg = nfa.to_regex();
+	println!("Regex is: {}",reg);
     return nfa.run(input_word, output_dfa);
 }
 

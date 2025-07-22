@@ -4,7 +4,7 @@ use crate::Rslt;
 use crate::nfa::NFA;
 
 #[derive(Clone,Debug)]
-struct Regex {
+pub struct Regex {
 	alphabet:String,
 	tree:RegexTree
 }
@@ -175,7 +175,7 @@ fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
 }
 
 #[derive(Clone,Debug)]
-enum RegexTree {
+pub enum RegexTree {
     Empty,
     Single(usize),
     KleeneStar(Box<RegexTree>),

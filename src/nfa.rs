@@ -1,14 +1,17 @@
 use std::fmt;
 use std::collections::HashMap;
 use std::collections::VecDeque;
+
 use crate::Rslt;
+
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
 
+use crate::regex::Regex;
 #[derive(Clone,Debug)]
 pub struct NFAState {
-    transitions:Vec<Vec<usize>>,
-    accepting:bool,
+    pub transitions:Vec<Vec<usize>>,
+    pub accepting:bool,
 }
 
 impl NFAState {
@@ -102,9 +105,9 @@ impl NFAState {
 
 #[derive(Clone,Debug)]
 pub struct NFA {
-	states:Vec<NFAState>,
-	starting:usize,
-	alphabet:String
+	pub states:Vec<NFAState>,
+	pub starting:usize,
+	pub alphabet:String
 }
 
 impl NFA {
@@ -410,7 +413,9 @@ impl NFA {
 		r1.states.push(NFAState::new(new_transitions,false));
 		return Ok((*r1).clone());
 	}
-	
+	pub fn to_regex(&self) -> Regex {
+		return crate::int_nfa_reg::nfa_to_regex(&self);
+	}
 }
 
 impl fmt::Display for NFA {

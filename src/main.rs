@@ -1,6 +1,7 @@
 mod dfa;
 mod nfa;
 mod regex;
+mod int_nfa_reg;
 
 use std::collections::HashMap;
 use std::fs::File;

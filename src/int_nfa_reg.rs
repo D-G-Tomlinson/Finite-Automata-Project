@@ -4,14 +4,15 @@ use crate::nfa::NFA;
 use crate::nfa::NFAState;
 
 pub fn nfa_to_regex(nfa:&NFA) -> Regex {
-	let alphabet:String=nfa.alphabet;
+	let alphabet:String=nfa.alphabet.clone();
 
 	let mut table = get_2d_array(nfa);
 
 	for i in 0..(table.len()-1) {
 		bypass_state(&mut table,i);
 	}
-	let rt = table.last().unwrap().last().unwrap()
+	let rt = table.last().unwrap().last().unwrap();
+	return Regex::new(alphabet,rt.clone());
 }
 
 fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:usize) {

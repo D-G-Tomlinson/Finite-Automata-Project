@@ -219,7 +219,7 @@ fn run_automata(cli:&Cli) -> Rslt {
 		Ok(a) => a
 	};
 
-	if cli.regex.as_deref().is_some() {
+	if cli.regex_output {
 		match autos.output_regex() {
 			Ok(()) => (),
 			Err(e) => return Rslt::Err(e)

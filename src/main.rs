@@ -24,7 +24,7 @@ struct Cli {
     #[arg(short, long)]
     word: Option<String>,
 
-    /// Location of the DFA file to write the converted input to, for regex or NFA input
+    /// Location of the DFA file to write the converted input to
     #[arg(short, long)]
     dfa_output: Option<String>,
 
@@ -32,10 +32,13 @@ struct Cli {
     #[arg(short, long)]
     regex: Option<String>,
 
-    /// Location of the DFA file to write the converted input to, for regex or NFA input
+    /// Location of the DFA file to write the converted input to
     #[arg(short, long)]
     nfa_output: Option<String>,
 
+	/// Flag if a converted regex is desired
+	#[arg(long)]
+	regex_output: bool,
 }
 
 struct Automata {
@@ -44,11 +47,74 @@ struct Automata {
 	regex: Option<Regex>
 }
 
+impl Automata {
+
+	fn new(cli:&Cli) -> Result<Automata,String> {
+		let input_type:InputType = match get_input_type(cli) {
+			Err(e) => return Err(e),
+			Ok(it) => it
+		};
+		
+		let lines:Vec<String>;
+		if input_type == InputType::Regex {
+			lines=Vec::new();
+		} else {
+			lines = match read_input_file(cli.input.as_deref().unwrap()) {
+				Err(e) => return Err(e),
+				Ok(l) => l
+			};
+		}
+		return match input_type {
+			InputType::Dfa => Automata::new_dfa(lines),
+			InputType::Nfa => Automata::new_nfa(lines),
+			InputType::Regex => Automata::new_regex(cli.regex.as_deref().unwrap())
+		};
+	}
+	
+	fn new_dfa(lines:Vec<String>) -> Result<Automata,String> {
+		let dfa = match DFA::from_lines(lines) {
+			Err(e) => return Err(e),
+			Ok(dfa_in) => Some(dfa_in)
+		};
+		let nfa = None;
+		let regex = None;
+		return Ok(Automata{dfa,nfa,regex});
+	}
+
+	fn new_nfa(lines:Vec<String>) -> Result<Automata,String> {
+		let dfa = None;
+		let nfa = match NFA::from_lines(lines) {
+			Err(e) => return Err(e),
+			Ok(nfa_in) => Some(nfa_in)
+		};		
+		let regex = None;
+		return Ok(Automata{dfa,nfa,regex});
+	}
+	
+	fn new_regex(regex_str:&str) -> Result<Automata,String> {
+		let dfa = None;
+		let nfa = None;
+		let regex:Option<Regex> = match Regex::from_string(regex_str.to_string()) {
+			Err(e) => return Err(e),
+			Ok(reg) => Some(reg)
+		};
+		return Ok(Automata{dfa,nfa,regex});
+	}
+
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum InputType{
-    DFA,
-    NFA,
-    REGEX
+    Dfa,
+    Nfa,
+    Regex
+}
+
+enum Outs {
+	Run,
+	Dfa,
+	Nfa,
+	Regex,
 }
 
 pub enum Rslt {
@@ -65,68 +131,53 @@ fn main() {
     println!("Use the --help option (i.e. cargo run -- --help) to learn about possible options.");
     
     let cli = Cli::parse();
-
-    let mut regex_in:String = String::new();
-    let is_regex:bool;
-    if let Some(regex) = cli.regex.as_deref() {
-	regex_in = String::from(regex);
-		is_regex = true;
-    } else {
-		is_regex = false;
-    }
-
-    let input_type:InputType;
-    let lines:Vec<String>;
-    match get_type_lines(cli.input.as_deref(), is_regex) {
-		Err(e) => {
-			println!("{}",e);
-			return;
-		},
-		Ok((t,l)) => {
-			input_type = t;
-			lines = l;
-		}
-    }
-
-    let input_word = cli.word.as_deref();
-    let output_dfa = cli.dfa_output.as_deref();
-    let output_nfa = cli.nfa_output.as_deref();
-    
-    let result=Rslt::Err(format!("Not implemented yet"));
+    let result=run_automata(&cli);
     println!("{}", match result {
 		Rslt::Err(e) => format!("Program failed! The following error was produced: \n{}",e),
 		Rslt::Acc => format!("ACCEPT"),
 		Rslt::Rej => format!("REJECT"),
 		Rslt::Nop => format!("No word provided, program finished without computation, only conversion."),
-		Rslt::Notodo => format!("No word or output file provided, nothing to do.")
+		Rslt::Notodo => format!("No word or output file provided, nothing to do."),
     });
     return;
 }
 
-fn get_type_lines(input: Option<&str>, is_regex:bool) -> Result<(InputType, Vec<String>),String> {
-    if let Some(address) = input {
-		if is_regex {
-			return Err(format!("No input file for regex operations."));
-		} else {
-			return read_input_file(address);
-		}
-    } else if is_regex {
-		return Ok((InputType::REGEX, Vec::new()));
-    } else {
-		return Err(format!("No automata or regex provided."));
-    }
+fn run_automata(cli:&Cli) -> Rslt {
+
+	if !(cli.word.as_deref().is_some() ||cli.dfa_output.as_deref().is_some()||cli.nfa_output.as_deref().is_some()||cli.regex_output) {
+		return Rslt::Notodo;
+	}
+	
+	let mut autos:Automata = match Automata::new(cli) {
+		Err(e) => return Rslt::Err(e),
+		Ok(a) => a
+	};
+	
+	return Rslt::Err(format!("Not implemented yet"));
 }
 
-fn read_input_file(address:&str) -> Result<(InputType, Vec<String>),String> {
-    let file_type = address.split('.').last().unwrap().to_uppercase();
-    let input_type:InputType;
-    match file_type.as_str() {
-		"DFA" => input_type = InputType::DFA,
-		"NFA" => input_type = InputType::NFA,
-		_ => {
-			return Err(format!("File type is unsupported."));
+
+fn get_input_type(cli:&Cli) -> Result<InputType,String> {
+	let is_regex = cli.regex.as_deref().is_some();
+	return match &cli.input.as_deref() {
+		None => match is_regex {
+			true => Ok(InputType::Regex),
+			false => Err(format!("No automata or regex provided."))
+		},
+		Some(address) => match is_regex {
+			true => Err(format!("Cannot input both regex and other automata")),
+			false => match address.split('.').last().unwrap().to_uppercase().as_str() {
+				"DFA" => Ok(InputType::Dfa),
+				"NFA" => Ok(InputType::Nfa),
+				_ => {
+					return Err(format!("File type is unsupported."));
+				}				
+			}
 		}
-    }    
+	}
+}
+
+fn read_input_file(address:&str) -> Result<Vec<String>,String> {
     let mut contents= String::new();
     match File::open(address) {
 		Ok(mut f) => _ = f.read_to_string(&mut contents),
@@ -134,9 +185,8 @@ fn read_input_file(address:&str) -> Result<(InputType, Vec<String>),String> {
 			return Err(format!("Cannot read file."));
 		}
     }
-    //println!("{}",contents);
     let lines = contents.lines().map(|s| s.to_string()).collect();
-    return Ok((input_type,lines));
+    return Ok(lines);
 }
 
 fn print_to_file(val:String,address:&str) -> Result<(),String> {

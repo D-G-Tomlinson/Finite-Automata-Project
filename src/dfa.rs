@@ -36,7 +36,7 @@ impl DFA {
 		
     }
     
-	fn from_lines(lines:Vec<String>) -> Result<DFA,String> {
+	pub fn from_lines(lines:Vec<String>) -> Result<DFA,String> {
 		if lines.len()<3 {
 			return Err(format!("Input file is too short"));
 		}

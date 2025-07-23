@@ -1,6 +1,5 @@
 use std::fmt;
 use std::collections::HashMap;
-use crate::Rslt;
 use crate::nfa::NFA;
 
 #[derive(Clone,Debug)]

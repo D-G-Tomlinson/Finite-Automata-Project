@@ -176,13 +176,6 @@ enum InputType{
     Regex
 }
 
-enum Outs {
-	Run,
-	Dfa,
-	Nfa,
-	Regex,
-}
-
 pub enum Rslt {
     Acc,//the word is accepted
     Rej,//the word is rejected

@@ -2,7 +2,6 @@ use std::fmt;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-use crate::Rslt;
 
 use crate::dfa::DFA;
 use crate::dfa::DFAState;

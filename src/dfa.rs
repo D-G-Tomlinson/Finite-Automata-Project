@@ -145,19 +145,3 @@ impl fmt::Display for DFAState {
 		write!(f, "{}", output)
 	}
 }
-pub fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
-    
-    let word:&str;
-    if let Some(in_word) = input_word {
-		word=in_word;
-    } else {
-		return Rslt::Notodo;
-    }
-	
-    let dfa:DFA;
-    match DFA::from_lines(lines) {
-		Ok(d) => dfa = d,	
-		Err(e) => return Rslt::Err(e)
-    }
-    return dfa.run(word);
-}

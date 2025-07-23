@@ -37,20 +37,6 @@ impl Regex {
 		};
 	}
 	
-	pub fn run(&self,nfa_address:Option<&str>,dfa_address:Option<&str>,word:Option<&str>) -> Rslt {
-		let result_nfa = self.to_nfa();
-		if nfa_address.is_some() {	
-			match crate::print_to_file(result_nfa.to_string(),nfa_address.unwrap()) {
-				Ok(()) => (),
-				Err(e) => return Rslt::Err(e)
-			}
-		}
-		if word.is_some() || dfa_address.is_some() {
-			return result_nfa.run(word,dfa_address);
-		}
-		return Rslt::Nop;
-	}
-
 	fn validate_regex(regex:Vec<char>) -> Result<(Vec<char>,String),String> {
 		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
 		let valid_symbols = vec!['(',')','|','+','?','*'];
@@ -91,35 +77,6 @@ impl fmt::Display for Regex {
 		};
 		write!(f,"{}",output)
 	}
-}
-
-pub fn regex_option(regex_in:String, output_dfa:Option<&str>, output_nfa_in:Option<&str>, input_word:Option<&str>) -> Rslt {
-    // the NFA to DFA step will validate this again, but it's useful to validate this here - if no valid output or word is provided the program doesn't need to waste time converting the regex to NFA
-	//once regex is refactored I'll change all of them so these steps are done in main
-    if let Some(ref in_output) = output_dfa {
-		let file_type = in_output.split('.').last().unwrap().to_uppercase();
-		if file_type != "DFA" {
-			return Rslt::Err(format!("Can only DFA output write to .dfa files"));
-		}
-    }
-
-    if let Some(in_output) = output_nfa_in {
-		let file_type = in_output.split('.').last().unwrap().to_uppercase();
-		if file_type != "NFA" {
-			return Rslt::Err(format!("Can only NFA output write to .nfa files"));
-		}
-    }
-	
-    if !(output_dfa.is_some()||input_word.is_some()||output_nfa_in.is_some()) {
-		return Rslt::Notodo;
-    }
-
-	let regex:Regex = match Regex::from_string(regex_in) {
-		Ok(reg) => reg,
-		Err(e) => return Rslt::Err(e)
-	};
-	return regex.run(output_nfa_in,output_dfa,input_word);
-	
 }
 
 /*

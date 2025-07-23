@@ -300,50 +300,6 @@ impl NFA {
 		return DFA::new(states,self.alphabet.clone(),starting);
 	}
 	
-	pub fn run(&self,input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
-		let word:&str;
-		let is_word:bool;
-		if let Some(in_word) = input_word {
-			is_word = true;
-			word=in_word;
-		} else {
-			is_word = false;
-			word="";
-		}
-			
-		let dfa_output_address;
-		let is_output:bool;
-		if let Some(in_output) = output_dfa {
-			dfa_output_address = in_output;
-			let file_type = dfa_output_address.split('.').last().unwrap().to_uppercase();
-			if file_type != "DFA" {
-				return Rslt::Err(format!("Can only write to .dfa files"));
-			}
-			is_output = true;
-		} else {
-			dfa_output_address = "";
-			is_output = false;
-		}
-				
-		if !(is_word || is_output) {
-			return Rslt::Notodo;
-		}
-
-		let dfa = self.to_dfa();
-		
-		if is_output {
-			match crate::print_to_file(dfa.to_string(),dfa_output_address) {
-				Ok(()) => (),
-				Err(e) => return Rslt::Err(e)
-			}
-		}
-		if is_word {
-			return dfa.run(word);
-		} else {
-			return Rslt::Nop;
-		}
-	}
-
 	pub fn get_never_accept(alphabet:String) -> NFA {
 		let states = vec![NFAState::new(vec![],false)];
 		let starting = 0;
@@ -438,15 +394,3 @@ impl fmt::Display for NFA {
 		write!(f,"{}",output)
 	}
 }
-
-pub fn nfa_option(lines:Vec<String>, input_word:Option<&str>, output_dfa:Option<&str>) -> Rslt {
-    let nfa: NFA;
-    match NFA::from_lines(lines) {
-		Ok(n) => nfa = n,
-		Err(e) => return Rslt::Err(e)
-    }
-	let reg = nfa.to_regex();
-	println!("Regex is: {}",reg);
-    return nfa.run(input_word, output_dfa);
-}
-

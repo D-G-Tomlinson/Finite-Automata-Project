@@ -3,6 +3,10 @@ mod nfa;
 mod regex;
 mod int_nfa_reg;
 
+use crate::dfa::DFA;
+use crate::nfa::NFA;
+use crate::regex::Regex;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -33,6 +37,13 @@ struct Cli {
     nfa_output: Option<String>,
 
 }
+
+struct Automata {
+	dfa: Option<DFA>,
+	nfa: Option<NFA>,
+	regex: Option<Regex>
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum InputType{
     DFA,
@@ -59,34 +70,29 @@ fn main() {
     let is_regex:bool;
     if let Some(regex) = cli.regex.as_deref() {
 	regex_in = String::from(regex);
-	is_regex = true;
+		is_regex = true;
     } else {
-	is_regex = false;
+		is_regex = false;
     }
 
     let input_type:InputType;
     let lines:Vec<String>;
     match get_type_lines(cli.input.as_deref(), is_regex) {
-	Err(e) => {
-	    println!("{}",e);
-	    return;
-	},
-	Ok((t,l)) => {
-	    input_type = t;
-	    lines = l;
-	}
+		Err(e) => {
+			println!("{}",e);
+			return;
+		},
+		Ok((t,l)) => {
+			input_type = t;
+			lines = l;
+		}
     }
 
     let input_word = cli.word.as_deref();
     let output_dfa = cli.dfa_output.as_deref();
     let output_nfa = cli.nfa_output.as_deref();
     
-    let result:Rslt = match input_type {
-		InputType::DFA => dfa::dfa_option(lines, input_word),
-		InputType::NFA => nfa::nfa_option(lines, input_word, output_dfa),
-		InputType::REGEX => regex::regex_option(regex_in,output_dfa,output_nfa,input_word)
-    };
-    
+    let result=Rslt::Err(format!("Not implemented yet"));
     println!("{}", match result {
 		Rslt::Err(e) => format!("Program failed! The following error was produced: \n{}",e),
 		Rslt::Acc => format!("ACCEPT"),

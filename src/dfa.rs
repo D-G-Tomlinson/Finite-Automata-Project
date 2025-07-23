@@ -1,6 +1,9 @@
 use crate::Rslt;
 use std::fmt;
 
+use crate::nfa::NFA;
+use crate::nfa::NFAState;
+
 #[derive(Clone)]
 pub struct DFA {
     states: Vec<DFAState>,
@@ -57,7 +60,11 @@ impl DFA {
 		return Ok(DFA::new(states,alphabet,starting));
 		
 	}
-
+	pub fn to_nfa(&self) -> NFA {
+		let states:Vec<NFAState> = (&self.states).into_iter().map(|s| s.to_nfastate()).collect();
+		return NFA::new(states,self.starting,self.alphabet.clone());
+	}
+	
 }
 
 impl fmt::Display for DFA {
@@ -117,6 +124,15 @@ impl DFAState {
 		);
 	}
 
+	pub fn to_nfastate(&self) -> NFAState {
+		let mut transitions:Vec<Vec<usize>> = Vec::new();
+		transitions.push(Vec::new());
+		for next in &self.transitions {
+			transitions.push(vec![*next]);
+		}
+		return NFAState::new(transitions,self.accepting);
+	}
+
 }
 impl fmt::Display for DFAState {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -128,7 +144,6 @@ impl fmt::Display for DFAState {
 		output.push_str(&self.accepting.to_string());
 		write!(f, "{}", output)
 	}
-
 }
 pub fn dfa_option(lines:Vec<String>, input_word:Option<&str>) -> Rslt {
     

@@ -101,6 +101,72 @@ impl Automata {
 		return Ok(Automata{dfa,nfa,regex});
 	}
 
+	fn run(&mut self, word:&str) -> Rslt {
+		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
+			return Rslt::Err(format!("Automata list is unitialised"));
+		}
+		if !self.dfa.is_some() {
+			if !self.nfa.is_some() {
+				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
+			}
+			self.dfa = Some(self.nfa.as_ref().unwrap().to_dfa());
+		}
+		return self.dfa.as_ref().unwrap().run(word);
+	}
+	
+	fn output_dfa(&mut self,address:&str) -> Result<(),String>{
+		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
+			return Err(format!("Automata list is unitialised"));
+		}
+		if !self.dfa.is_some() {
+			if !self.nfa.is_some() {
+				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
+			}
+			self.dfa = Some(self.nfa.as_ref().unwrap().to_dfa());
+		}
+
+		return match print_to_file(self.dfa.as_ref().unwrap().to_string(),address) {
+			Ok(()) => {
+				println!("DFA written to {}",address);
+				Ok(())
+			},
+			Err(e) => Err(e)
+		}
+	}
+	
+	fn output_nfa(&mut self,address:&str) -> Result<(),String> {
+		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
+			return Err(format!("Automata list is unitialised"));
+		}
+		if !self.nfa.is_some() {
+			match self.dfa.is_some() {
+				true => self.nfa = Some(self.dfa.as_ref().unwrap().to_nfa()),
+				false => self.nfa = Some(self.regex.as_ref().unwrap().to_nfa())
+			}
+		}
+		return match print_to_file(self.nfa.as_ref().unwrap().to_string(),address) {
+			Ok(()) => {
+				println!("NFA written to {}",address);
+				Ok(())
+			},
+			Err(e) => Err(e)
+		}
+	}
+	
+	fn output_regex(&mut self) -> Result<(),String>{
+		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
+			return Err(format!("Automata list is unitialised"));
+		}
+		if !self.regex.is_some() {
+			if !self.nfa.is_some() {
+				self.nfa = Some(self.dfa.as_ref().unwrap().to_nfa());
+			}
+			self.regex = Some(self.nfa.as_ref().unwrap().to_regex());
+		}
+		println!("Regex is: {}",self.regex.as_ref().unwrap().to_string());
+		return Ok(());
+	}
+	
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -152,8 +218,32 @@ fn run_automata(cli:&Cli) -> Rslt {
 		Err(e) => return Rslt::Err(e),
 		Ok(a) => a
 	};
-	
-	return Rslt::Err(format!("Not implemented yet"));
+
+	if cli.regex.as_deref().is_some() {
+		match autos.output_regex() {
+			Ok(()) => (),
+			Err(e) => return Rslt::Err(e)
+		}
+	}
+
+	if let Some(address) = cli.nfa_output.as_deref() {
+		match autos.output_nfa(address) {
+			Ok(()) => (),
+			Err(e) => return Rslt::Err(e)
+		}
+	}
+
+	if let Some(address) = cli.dfa_output.as_deref() {
+		match autos.output_dfa(address) {
+			Ok(()) => (),
+			Err(e) => return Rslt::Err(e)
+		}
+	}
+
+	if let Some(word) = cli.word.as_deref() {
+		return autos.run(word);
+	}
+	return Rslt::Nop;
 }
 
 

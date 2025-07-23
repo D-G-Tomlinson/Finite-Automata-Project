@@ -271,7 +271,7 @@ impl NFA {
 		}
 		return false;
 	}
-	fn to_dfa(&self) -> DFA {
+	pub fn to_dfa(&self) -> DFA {
 		let equivalents = self.get_equivalents();
 		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
 		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();

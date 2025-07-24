@@ -5,7 +5,6 @@ use crate::nfa::NFAState;
 
 pub fn nfa_to_regex(nfa:&NFA) -> Regex {
 	let alphabet:String=nfa.alphabet.clone();
-
 	let mut table = get_2d_array(nfa);
 	for i in 0..(table.len()-1) {
 		bypass_state(&mut table,i);
@@ -85,7 +84,7 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 			Some(rt) => Some(
 				RegexTree::Or((
 					Box::new(rt.clone()),
-					Box::new(RegexTree::Single(letter))
+					Box::new(RegexTree::Empty)
 				))
 			)
 		};
@@ -99,7 +98,7 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 				Some(rt) => Some(
 					RegexTree::Or((
 						Box::new(rt.clone()),
-						Box::new(RegexTree::Single(letter))
+						Box::new(RegexTree::Single(letter-1))
 					))
 				)
 			};

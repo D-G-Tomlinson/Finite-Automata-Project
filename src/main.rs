@@ -140,7 +140,7 @@ impl Automata {
 		}
 		if !self.nfa.is_some() {
 			match self.dfa.is_some() {
-				true => self.nfa = Some(self.dfa.as_ref().unwrap().to_nfa()),
+				true => self.nfa = Some(NFA::from(self.dfa.as_ref().unwrap())),
 				false => self.nfa = Some(self.regex.as_ref().unwrap().to_nfa())
 			}
 		}
@@ -159,7 +159,7 @@ impl Automata {
 		}
 		if !self.regex.is_some() {
 			if !self.nfa.is_some() {
-				self.nfa = Some(self.dfa.as_ref().unwrap().to_nfa());
+				self.nfa = Some(NFA::from(self.dfa.as_ref().unwrap()));
 			}
 			self.regex = Some(self.nfa.as_ref().unwrap().to_regex());
 		}

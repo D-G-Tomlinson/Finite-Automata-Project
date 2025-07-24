@@ -2,6 +2,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use std::convert::From;
 
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
@@ -99,6 +100,18 @@ impl NFAState {
 		}		
 		output.push_str(&self.accepting.to_string());
 		return output;
+	}
+}
+
+impl From<&DFAState> for NFAState {
+	fn from(dfastate:&DFAState) -> Self {
+		let mut transitions:Vec<Vec<usize>> = Vec::new();
+		transitions.push(Vec::new());
+		for next in &dfastate.transitions {
+			transitions.push(vec![*next]);
+		}
+		return NFAState::new(transitions,dfastate.accepting);
+
 	}
 }
 
@@ -377,6 +390,13 @@ impl NFA {
 	}
 	pub fn to_regex(&self) -> Regex {
 		return crate::int_nfa_reg::nfa_to_regex(&self);
+	}
+}
+
+impl From<&DFA> for NFA {
+	fn from(dfa:&DFA) -> Self {
+		let states:Vec<NFAState> = (&dfa.states).into_iter().map(|s| NFAState::from(s)).collect();
+		return NFA::new(states,dfa.starting,dfa.alphabet.clone());
 	}
 }
 

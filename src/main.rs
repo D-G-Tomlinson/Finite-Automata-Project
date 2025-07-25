@@ -107,7 +107,7 @@ impl Automata {
 		}
 		if !self.dfa.is_some() {
 			if !self.nfa.is_some() {
-				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
+				self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()));
 			}
 			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
 		}
@@ -120,7 +120,7 @@ impl Automata {
 		}
 		if !self.dfa.is_some() {
 			if !self.nfa.is_some() {
-				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
+				self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()));
 			}
 			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
 		}
@@ -141,7 +141,7 @@ impl Automata {
 		if !self.nfa.is_some() {
 			match self.dfa.is_some() {
 				true => self.nfa = Some(NFA::from(self.dfa.as_ref().unwrap())),
-				false => self.nfa = Some(self.regex.as_ref().unwrap().to_nfa())
+				false => self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()))
 			}
 		}
 		return match print_to_file(self.nfa.as_ref().unwrap().to_string(),address) {

@@ -8,6 +8,7 @@ use crate::dfa::DFA;
 use crate::dfa::DFAState;
 
 use crate::regex::Regex;
+
 #[derive(Clone,Debug)]
 pub struct NFAState {
     pub transitions:Vec<Vec<usize>>,
@@ -211,6 +212,14 @@ impl From<&DFA> for NFA {
 	}
 }
 
+impl From<&Regex> for NFA {
+	fn from(reg:&Regex) -> Self {
+		return match &reg.tree {
+			None => NFA::get_never_accept(reg.alphabet.clone()),
+			Some(tree) => tree.to_nfa(reg.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error")
+		};
+	}
+}
 impl TryFrom<Vec<String>> for NFA {
 	type Error=String;
 	fn try_from(lines:Vec<String>) -> Result<Self,Self::Error> {

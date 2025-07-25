@@ -7,21 +7,14 @@ use std::convert::TryFrom;
 
 #[derive(Clone,Debug)]
 pub struct Regex {
-	alphabet:String,
-	tree:Option<RegexTree>
+	pub alphabet:String,
+	pub tree:Option<RegexTree>
 }
 
 impl Regex {
 	pub fn new(alphabet:String, tree:Option<RegexTree>) -> Regex {
 		Regex{alphabet,tree}
 	}
-	pub fn to_nfa(&self) -> NFA{
-		return match &self.tree {
-			None => NFA::get_never_accept(self.alphabet.clone()),
-			Some(tree) => tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error")
-		};
-	}
-	
 	fn validate_regex(regex:&Vec<char>) -> Result<String,String> {
 		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
 		let valid_symbols = vec!['(',')','|','+','?','*'];
@@ -155,7 +148,7 @@ pub enum RegexTree {
     Or((Box<RegexTree>,Box<RegexTree>)),
 }
 impl RegexTree {
-	fn to_nfa(&self,a:String) -> Result<NFA,String> {
+	pub fn to_nfa(&self,a:String) -> Result<NFA,String> {
 		return match &self {
 			RegexTree::Empty => NFA::get_accept_empty(a),
 			RegexTree::Single(i) => NFA::get_accept_single(*i,a),

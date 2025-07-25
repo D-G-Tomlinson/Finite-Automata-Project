@@ -72,7 +72,7 @@ impl Automata {
 	}
 	
 	fn new_dfa(lines:Vec<String>) -> Result<Automata,String> {
-		let dfa = match DFA::from_lines(lines) {
+		let dfa = match DFA::try_from(lines) {
 			Err(e) => return Err(e),
 			Ok(dfa_in) => Some(dfa_in)
 		};
@@ -83,7 +83,7 @@ impl Automata {
 
 	fn new_nfa(lines:Vec<String>) -> Result<Automata,String> {
 		let dfa = None;
-		let nfa = match NFA::from_lines(lines) {
+		let nfa = match NFA::try_from(lines) {
 			Err(e) => return Err(e),
 			Ok(nfa_in) => Some(nfa_in)
 		};		
@@ -109,7 +109,7 @@ impl Automata {
 			if !self.nfa.is_some() {
 				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
 			}
-			self.dfa = Some(self.nfa.as_ref().unwrap().to_dfa());
+			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
 		}
 		return self.dfa.as_ref().unwrap().run(word);
 	}
@@ -122,7 +122,7 @@ impl Automata {
 			if !self.nfa.is_some() {
 				self.nfa = Some(self.regex.as_ref().unwrap().to_nfa());
 			}
-			self.dfa = Some(self.nfa.as_ref().unwrap().to_dfa());
+			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
 		}
 
 		return match print_to_file(self.dfa.as_ref().unwrap().to_string(),address) {

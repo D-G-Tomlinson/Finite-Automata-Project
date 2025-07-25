@@ -1,8 +1,8 @@
 use std::fmt;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 
 use std::convert::From;
+use std::convert::TryFrom;
 
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
@@ -126,192 +126,6 @@ impl NFA {
 	pub fn new(states:Vec<NFAState>,starting:usize,alphabet:String) -> NFA {
 		NFA{states, starting, alphabet}
 	}
-	pub fn from_lines(lines:Vec<String>) -> Result<NFA,String> {
-		let num_lines = lines.len();
-		if num_lines < 3 {
-			return Err(format!("Input file is too short"))
-		}
-		let alphabet:String = match crate::get_alphabet(&lines[0]){
-			Err(e) => return Err(e),
-			Ok(am) => am
-		};
-		let alphabet_hm = crate::get_alphabet_hm(&lines[0]);
-		let starting = match lines[1].parse::<usize>() {
-			Ok(n) => {
-				if n <= num_lines - 2 && n>0 {
-					n-1
-				} else {
-					return Err(format!("Starting number is not suitable"))
-				}
-			},
-			Err(_) => return Err(format!("Starting is not a number"))
-		};
-		let state_lines = &lines[2..];
-		let mut states:Vec<NFAState> = Vec::new();
-//		states.push(NFAState::new(Vec::new(),false,Vec::new()));//dummy state to represent the bin
-		for line in state_lines{
-			states.push(match NFAState::from_line(line,&alphabet_hm,num_lines-2) {
-				Ok(nfastate) => nfastate,
-				Err(e) => return Err(e)
-			});
-		}
-		return Ok(NFA::new(states,starting,alphabet));
-	}
-
-	
-	
-	fn ordered_union(v1:&Vec<usize>,v2:&Vec<usize>) -> Vec<usize> {
-		if v1.len()==0 {
-			return v2.to_vec();
-		} else if v2.len()==0 {
-			return v1.to_vec();
-		}
-		
-		let mut result:Vec<usize> = Vec::new();
-		let mut i = 0;
-		let mut j = 0;
-		if v1[0]<v2[0] {
-			result.push(v1[0]);
-		} else {
-			result.push(v2[0]);
-		}
-		
-		while i < v1.len() || j < v2.len() {
-			let consider_v1:bool;
-			if i==v1.len() {
-				consider_v1 = false;
-			} else if j==v2.len() {
-				consider_v1 = true;
-			} else if v1[i]<=v2[j] {
-				consider_v1 = true;
-			} else {
-				consider_v1 = false;
-			}
-			if consider_v1 {
-				if result.last().unwrap() == &v1[i] {
-					i=i+1
-				} else {
-					result.push(v1[i]);
-					i=i+1;
-				}
-			} else {
-				if result.last().unwrap() == &v2[j] {
-					j=j+1
-				} else {
-					result.push(v2[j]);
-					j=j+1;
-				}
-			}
-		}
-		return result;
-	}
-	
-	fn get_equivalents(&self) -> Vec<Vec<usize>> {		
-		let num_states = self.states.len();
-		let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| NFA::ordered_union(&vec![i],&self.states[i].transitions[0])).collect();
-		let mut changed = true;
-		while changed {
-			changed = false;
-			for i in 0..num_states {
-				for j in 0..num_states {
-					if eqs[i].contains(&j)  {
-						let v1 = &eqs[i];
-						let v2 = &eqs[j];
-						let new = NFA::ordered_union(&v1,&v2);
-						if v1 != &new {
-							changed=true;
-							eqs[i]=new;
-						}
-					}
-				}
-			}
-		}
-		return eqs;
-	}
-
-	fn get_equivalents_vec(states:&Vec<usize>,equivalents:&Vec<Vec<usize>>) -> Vec<usize> {
-		let mut result = Vec::new();
-		for state in states {
-			let eqs = &equivalents[*state];
-			result = NFA::ordered_union(&result,eqs);
-		}
-		return result;
-	}
-
-	fn get_to(&self, from:usize, by:usize,equivalents:&Vec<Vec<usize>>) -> Vec<usize>{
-		let mut result:Vec<usize> = Vec::new();
-		let from_states = &equivalents[from];
-		for state in from_states {
-			let next = &self.states[*state].transitions[by];
-			let next_states =NFA::get_equivalents_vec(next,equivalents);
-			result = NFA::ordered_union(&result, &next_states);
-		}
-		return result;
-	}
-
-	fn get_to_vec(&self, from:&Vec<usize>, by:usize, equivalents:&Vec<Vec<usize>>) -> Vec<usize>{
-		let eqs = from.into_iter().map(|state| self.get_to(*state,by,equivalents));
-		let mut result:Vec<usize> = Vec::new();
-		for state in eqs {
-			result = NFA::ordered_union(&result,&state);
-		}
-		return result;
-	}
-
-	fn add_line_to_table(&self,new_states:&mut HashMap<Vec<usize>,usize>,frontier:&mut VecDeque<Vec<usize>>,state_table:&mut Vec<Vec<usize>>,accepts:&mut Vec<bool>,state:&Vec<usize>,equivalents:&Vec<Vec<usize>>) {
-		new_states.insert(state.to_vec(),state_table.len());
-		frontier.push_back(state.to_vec());
-		accepts.push(self.is_accepting_vec(state.to_vec(),equivalents));
-		state_table.push(Vec::new());
-	}
-
-	fn is_accepting(&self,input_state:&usize,equivalents:&Vec<Vec<usize>>) -> bool {
-		let eqs = &equivalents[*input_state];
-		for state in eqs {
-			if self.states[*state].accepting {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	fn is_accepting_vec(&self,input_states:Vec<usize>,equivalents:&Vec<Vec<usize>>) -> bool {
-		for state in input_states {
-			if self.is_accepting(&state,equivalents) {
-				return true
-			}
-		}
-		return false;
-	}
-	pub fn to_dfa(&self) -> DFA {
-		let equivalents = self.get_equivalents();
-		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
-		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();
-		let mut state_table:Vec<Vec<usize>> = Vec::new();
-		let mut accepts:Vec<bool> = Vec::new();
-
-		let num_letters = self.states[0].transitions.len()-1;
-		
-		let first_state = &equivalents[self.starting];
-		self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&first_state,&equivalents);
-		while !frontier.is_empty() {
-			let current = NFA::get_equivalents_vec(&frontier.pop_front().unwrap(),&equivalents);
-			let current_row = new_states[&current];			
-			for i in 1..(num_letters+1) {
-				let next = self.get_to_vec(&current,i,&equivalents);
-				if !new_states.contains_key(&next) {
-					self.add_line_to_table(&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next,&equivalents);
-				}
-				state_table[current_row].push(new_states[&next]);
-			}
-		}
-
-		let states:Vec<DFAState> = (0..state_table.len()).map(|i|DFAState::new(state_table[i].clone(),accepts[i])).collect();
-		let starting = 0;
-		
-		return DFA::new(states,self.alphabet.clone(),starting);
-	}
-	
 	pub fn get_never_accept(alphabet:String) -> NFA {
 		let states = vec![NFAState::new(vec![],false)];
 		let starting = 0;
@@ -398,6 +212,42 @@ impl From<&DFA> for NFA {
 		let states:Vec<NFAState> = (&dfa.states).into_iter().map(|s| NFAState::from(s)).collect();
 		return NFA::new(states,dfa.starting,dfa.alphabet.clone());
 	}
+}
+
+impl TryFrom<Vec<String>> for NFA {
+	type Error=String;
+	fn try_from(lines:Vec<String>) -> Result<Self,Self::Error> {
+		let num_lines = lines.len();
+		if num_lines < 3 {
+			return Err(format!("Input file is too short"))
+		}
+		let alphabet:String = match crate::get_alphabet(&lines[0]){
+			Err(e) => return Err(e),
+			Ok(am) => am
+		};
+		let alphabet_hm = crate::get_alphabet_hm(&lines[0]);
+		let starting = match lines[1].parse::<usize>() {
+			Ok(n) => {
+				if n <= num_lines - 2 && n>0 {
+					n-1
+				} else {
+					return Err(format!("Starting number is not suitable"))
+				}
+			},
+			Err(_) => return Err(format!("Starting is not a number"))
+		};
+		let state_lines = &lines[2..];
+		let mut states:Vec<NFAState> = Vec::new();
+//		states.push(NFAState::new(Vec::new(),false,Vec::new()));//dummy state to represent the bin
+		for line in state_lines{
+			states.push(match NFAState::from_line(line,&alphabet_hm,num_lines-2) {
+				Ok(nfastate) => nfastate,
+				Err(e) => return Err(e)
+			});
+		}
+		return Ok(NFA::new(states,starting,alphabet));
+	}
+
 }
 
 impl fmt::Display for NFA {

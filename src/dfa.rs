@@ -1,3 +1,6 @@
+use crate::StateNum;
+use crate::Ordered;
+
 use crate::Rslt;
 use std::fmt;
 
@@ -14,11 +17,11 @@ use std::convert::TryFrom;
 pub struct DFA {
     pub states: Vec<DFAState>,
     pub alphabet:String,
-    pub starting:usize	
+    pub starting:StateNum	
 }
 
 impl DFA {
-    pub fn new(states:Vec<DFAState>, alphabet:String,starting:usize) -> Self {
+    pub fn new(states:Vec<DFAState>, alphabet:String,starting:StateNum) -> Self {
 		Self{states, alphabet, starting}
     }
     
@@ -32,7 +35,7 @@ impl DFA {
 			let equivalent = alphabet_map[&letter];
 			let current_state_obj = &self.states[current_state];
 			let edges = &current_state_obj.transitions;
-			current_state = edges[equivalent];
+			current_state = edges[equivalent.0];
 		}
 		//    println!{"Final state is {}",current_state}
 		return match self.states[current_state].accepting {
@@ -55,7 +58,7 @@ impl TryFrom<Vec<String>> for DFA {
 			Err(e) => return Err(e),
 			Ok(ab) => ab
 		};
-		let starting = lines[1].parse::<usize>().unwrap()-1;   
+		let starting = lines[1].parse::<StateNum>().unwrap()-1;   
 		
 		let num_states = lines.len()-2;
 		let num_letters = alphabet.len();
@@ -74,10 +77,10 @@ impl TryFrom<Vec<String>> for DFA {
 
 impl From<&NFA> for DFA {
 	fn from(nfa:&NFA) -> Self {
-		let equivalents = get_equivalents(&nfa.states);
-		let mut new_states:HashMap<Vec<usize>,usize> = HashMap::new();
-		let mut frontier:VecDeque<Vec<usize>> = VecDeque::new();
-		let mut state_table:Vec<Vec<usize>> = Vec::new();
+		let equivalents:Vec<Ordered> = get_equivalents(&nfa.states);
+		let mut new_states:HashMap<Vec<StateNum>,usize> = HashMap::new();
+		let mut frontier:VecDeque<Vec<StateNum>> = VecDeque::new();
+		let mut state_table:Vec<Vec<StateNum>> = Vec::new();
 		let mut accepts:Vec<bool> = Vec::new();
 
 		let num_letters = nfa.states[0].transitions.len()-1;
@@ -104,20 +107,20 @@ impl From<&NFA> for DFA {
 }
 
 
-fn get_to(states:&Vec<NFAState>, from:usize, by:usize,equivalents:&Vec<Vec<usize>>) -> Vec<usize>{
-	let mut result:Vec<usize> = Vec::new();
-	let from_states = &equivalents[from];
+fn get_to(states:&Vec<NFAState>, from:StateNum, by:usize,equivalents:&Vec<Ordered>) -> Ordered {
+	let mut result:Ordered = Ordered(Vec::new());
+	let Ordered(from_states) = &equivalents[from];
 	for state in from_states {
 		let next = &states[*state].transitions[by];
-		let next_states =get_equivalents_vec(next,equivalents);
+		let next_states = get_equivalents_vec(next,equivalents);
 		result = ordered_union(&result, &next_states);
 	}
 	return result;
 }
 
-fn get_to_vec(states:&Vec<NFAState>, from:&Vec<usize>, by:usize, equivalents:&Vec<Vec<usize>>) -> Vec<usize>{
+fn get_to_vec(states:&Vec<NFAState>, from:&Vec<StateNum>, by:usize, equivalents:&Vec<Ordered>) -> Ordered {
 	let eqs = from.into_iter().map(|state| get_to(states,*state,by,equivalents));
-	let mut result:Vec<usize> = Vec::new();
+	let mut result:Ordered = Ordered(Vec::new());
 	for state in eqs {
 		result = ordered_union(&result,&state);
 		}
@@ -125,8 +128,8 @@ fn get_to_vec(states:&Vec<NFAState>, from:&Vec<usize>, by:usize, equivalents:&Ve
 }
 	
 
-fn get_equivalents_vec(states:&Vec<usize>,equivalents:&Vec<Vec<usize>>) -> Vec<usize> {
-	let mut result = Vec::new();
+fn get_equivalents_vec(states:&Vec<StateNum>,equivalents:&Vec<Ordered>) -> Ordered {
+	let mut result = Ordered(Vec::new());
 	for state in states {
 		let eqs = &equivalents[*state];
 		result = ordered_union(&result,eqs);
@@ -135,9 +138,10 @@ fn get_equivalents_vec(states:&Vec<usize>,equivalents:&Vec<Vec<usize>>) -> Vec<u
 }
 
 
-fn get_equivalents(states:&Vec<NFAState>) -> Vec<Vec<usize>> {		
+fn get_equivalents(states:&Vec<NFAState>) -> Vec<Ordered> {		
 	let num_states = states.len();
-	let mut eqs:Vec<Vec<usize>> = (0..num_states).map(|i| ordered_union(&vec![i],&states[i].transitions[0])).collect();
+	let mut eqs:Vec<Vec<StateNum>> = (0..num_states)
+		.map(|i| ordered_union(&Ordered(vec![i]), &states[i].transitions[0])).collect();
 	let mut changed = true;
 	while changed {
 		changed = false;
@@ -158,14 +162,14 @@ fn get_equivalents(states:&Vec<NFAState>) -> Vec<Vec<usize>> {
 	return eqs;
 }	
 
-	fn add_line_to_table(states:&Vec<NFAState>,new_states:&mut HashMap<Vec<usize>,usize>,frontier:&mut VecDeque<Vec<usize>>,state_table:&mut Vec<Vec<usize>>,accepts:&mut Vec<bool>,state:&Vec<usize>,equivalents:&Vec<Vec<usize>>) {
+	fn add_line_to_table(states:&Vec<NFAState>,new_states:&mut HashMap<Vec<StateNum>,usize>,frontier:&mut VecDeque<Vec<StateNum>>,state_table:&mut Vec<Vec<StateNum>>,accepts:&mut Vec<bool>,state:&Vec<StateNum>,equivalents:&Vec<Vec<StateNum>>) {
 		new_states.insert(state.to_vec(),state_table.len());
 		frontier.push_back(state.to_vec());
 		accepts.push(is_accepting_vec(states,state.to_vec(),equivalents));
 		state_table.push(Vec::new());
 	}
 
-	fn is_accepting(states:&Vec<NFAState>,input_state:&usize,equivalents:&Vec<Vec<usize>>) -> bool {
+	fn is_accepting(states:&Vec<NFAState>,input_state:&StateNum,equivalents:&Vec<Vec<StateNum>>) -> bool {
 		let eqs = &equivalents[*input_state];
 		for state in eqs {
 			if states[*state].accepting {
@@ -175,7 +179,7 @@ fn get_equivalents(states:&Vec<NFAState>) -> Vec<Vec<usize>> {
 		return false;
 	}
 
-	fn is_accepting_vec(states:&Vec<NFAState>,input_states:Vec<usize>,equivalents:&Vec<Vec<usize>>) -> bool {
+	fn is_accepting_vec(states:&Vec<NFAState>,input_states:Vec<StateNum>,equivalents:&Vec<Vec<StateNum>>) -> bool {
 		for state in input_states {
 			if is_accepting(states,&state,equivalents) {
 				return true
@@ -185,11 +189,14 @@ fn get_equivalents(states:&Vec<NFAState>) -> Vec<Vec<usize>> {
 	}
 
 	
-fn ordered_union(v1:&Vec<usize>,v2:&Vec<usize>) -> Vec<usize> {
+pub fn ordered_union(v1:&Ordered,v2:&Ordered) -> Ordered {
+	let Ordered(v1) = v1;
+	let Ordered(v2) = v2;
+	
 	if v1.len()==0 {
-		return v2.to_vec();
+		return Ordered(v2.to_vec());
 	} else if v2.len()==0 {
-		return v1.to_vec();
+		return Ordered(v1.to_vec());
 	}
 	
 	let mut result:Vec<usize> = Vec::new();
@@ -228,7 +235,7 @@ fn ordered_union(v1:&Vec<usize>,v2:&Vec<usize>) -> Vec<usize> {
 			}
 		}
 	}
-	return result;
+	return Ordered(result);
 }
 
 
@@ -248,12 +255,12 @@ impl fmt::Display for DFA {
 
 #[derive(Clone)]
 pub struct DFAState {
-    pub transitions: Vec<usize>,
+    pub transitions: Vec<StateNum>,
     pub accepting:bool
 }
 
 impl DFAState {
-    pub fn new(transitions:Vec<usize>,accepting:bool) -> Self {
+    pub fn new(transitions:Vec<StateNum>,accepting:bool) -> Self {
 		Self{transitions, accepting}
     }
 	fn from_line(line:&String,num_letters:usize,num_states:usize) -> Result<Self,String> {
@@ -262,12 +269,12 @@ impl DFAState {
 			return Err(format!("Invalid number of elements on line"));
 		}
 		
-		let mut next_states:Vec<usize> = Vec::new();
+		let mut next_states:Vec<StateNum> = Vec::new();
 		for next_state_str in (&split_state[0..num_letters]).into_iter(){
-			match next_state_str.parse::<usize>() {
-				Ok(next_state_num) => {
-					if next_state_num >= 1 && next_state_num <= num_states {
-						next_states.push(next_state_num-1)
+			match next_state_str.parse::<StateNum>() {
+				Ok(next_StateNum) => {
+					if next_StateNum >= 1 && next_StateNum <= num_states {
+						next_states.push(next_StateNum-1)
 					} else {
 						return Err(format!("Value of next state is outside of the bounds of possible states"));
 					}

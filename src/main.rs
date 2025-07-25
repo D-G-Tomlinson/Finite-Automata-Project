@@ -11,6 +11,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 
+use std::convert::From;
+
 use clap::Parser; //allows me flexibility with reading commandline arguments
 
 #[derive(Parser)]
@@ -283,7 +285,7 @@ fn print_to_file(val:String,address:&str) -> Result<(),String> {
 }
 
 
-pub fn get_alphabet(alphabet:&str) -> Result<String,String> {
+fn get_alphabet(alphabet:&str) -> Result<String,String> {
 	let invalid_letters = vec![':',','];
 	let mut result:Vec<char> = Vec::new();
 	for c in alphabet.chars() {
@@ -297,17 +299,39 @@ pub fn get_alphabet(alphabet:&str) -> Result<String,String> {
 	return Ok(result.into_iter().collect());
 }
 
-pub fn get_alphabet_hm(alphabet:&str) -> HashMap<char,usize> {
+fn get_alphabet_hm(alphabet:&str) -> HashMap<char,Index0> {
 
 	let alphabet = alphabet.chars();
 	
-	let mut alphabet_hashmap = HashMap::<char,usize>::new();
-	let mut i = 0; //not to be read here, only passed to dfa so ignoring jump is fine
+	let mut alphabet_hashmap = HashMap::<char,Index0>::new();
+	let mut i = Index0(0); //not to be read here, only passed to dfa so ignoring jump is fine
 	for c in alphabet {
 		if !alphabet_hashmap.contains_key(&c) {
 			alphabet_hashmap.insert(c,i);
-			i = i + 1;
+			i = Index0(i.0 + 1);
 		}
 	}
 	return alphabet_hashmap;
 }
+#[derive(Clone,Copy,Debug)]
+struct Index0(usize); // alphabet indexing with first letter at 0
+
+#[derive(Clone,Copy,Debug)]
+struct Index1(usize); // alphabet indexing with first letter at 1, jump at 0
+
+impl From<Index1> for Index0 {
+	fn from(i1:Index1) -> Self {
+		let Index1(i1) = i1;
+		return Self(i1-1);
+	}
+}
+impl From<Index0> for Index1 {
+	fn from(i0:Index0) -> Self {
+		let Index0(i0) = i0;
+		return Self(i0+1);
+	}
+}
+
+type StateNum = usize;
+#[derive(Clone,Debug)]
+struct Ordered(Vec<StateNum>);

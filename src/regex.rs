@@ -5,6 +5,10 @@ use crate::nfa::NFA;
 use std::convert::From;
 use std::convert::TryFrom;
 
+use crate::Index0;
+use crate::Index1;
+
+
 #[derive(Clone,Debug)]
 pub struct Regex {
 	pub alphabet:String,
@@ -56,7 +60,9 @@ impl TryFrom<String> for Regex {
 			Ok(ab) => ab
 		};
 		let alphabet_hashmap = crate::get_alphabet_hm(&alphabet);
-		let regex:Vec<InProgress> = regex.iter().map(|c| InProgress::from_char(*c,&alphabet_hashmap)).collect();
+		let regex:Vec<InProgress> = regex
+			.iter()
+			.map(|c| InProgress::from_char(*c,&alphabet_hashmap)).collect();
 		
 		let regex = RegexTree::from_in_progress(regex);
 		return Ok(Regex::new(alphabet, Some(regex)));
@@ -140,7 +146,7 @@ fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
 #[derive(Clone,Debug)]
 pub enum RegexTree {
     Empty,
-    Single(usize),
+    Single(Index0),
     KleeneStar(Box<RegexTree>),
     KleenePlus(Box<RegexTree>),
     QMark(Box<RegexTree>),
@@ -151,7 +157,7 @@ impl RegexTree {
 	pub fn to_nfa(&self,a:String) -> Result<NFA,String> {
 		return match &self {
 			RegexTree::Empty => NFA::get_accept_empty(a),
-			RegexTree::Single(i) => NFA::get_accept_single(*i,a),
+			RegexTree::Single(i) => NFA::get_accept_single((*i).into(),a),
 			RegexTree::KleeneStar(r) => get_kstar(&*r, a),
 			RegexTree::KleenePlus(r) => get_concat(&(**r).clone(),&RegexTree::KleeneStar(Box::new((**r).clone())),a),
 			RegexTree::QMark(r) => get_or(&RegexTree::Empty,&**r,a),
@@ -365,7 +371,7 @@ impl RegexTree {
 	pub fn to_string(&self, alphabet:&Vec<char>) -> String {
 		return match &self {
 			RegexTree::Empty => String::new(),
-			RegexTree::Single(i) => alphabet[*i].to_string(),
+			RegexTree::Single(i) => alphabet[(*i).0].to_string(),
 			RegexTree::KleeneStar(r) => RegexTree::opp_to_string('*',&**r,alphabet),
 			RegexTree::KleenePlus(r) => RegexTree::opp_to_string('+',&**r,alphabet),
 			RegexTree::QMark(r) => RegexTree::opp_to_string('?',&**r,alphabet),
@@ -387,7 +393,7 @@ enum InProgress {
     Close
 }
 impl InProgress {
-	fn from_char(c:char, hm:&HashMap<char,usize>) -> InProgress {
+	fn from_char(c:char, hm:&HashMap<char,Index0>) -> InProgress {
 		match c {
 			'*' => InProgress::KStar,
 			'+' => InProgress::KPlus,

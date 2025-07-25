@@ -3,6 +3,9 @@ use crate::regex::Regex;
 use crate::nfa::NFA;
 use crate::nfa::NFAState;
 
+use crate::Index0;
+use crate::Index1;
+
 pub fn nfa_to_regex(nfa:&NFA) -> Regex {
 	let alphabet:String=nfa.alphabet.clone();
 	let mut table = get_2d_array(nfa);
@@ -78,7 +81,7 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 	let num_letters = state.transitions.len();
 
 	let letter = 0;
-	for next in &state.transitions[letter] {
+	for next in &state.transitions[letter].0 {
 		result[*next] = match &result[*next] {
 			None => Some(RegexTree::Empty),
 			Some(rt) => Some(
@@ -92,13 +95,14 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 	
 	
 	for letter in 1..num_letters {
-		for next in &state.transitions[letter] {
+		let letter_ind = Index1(letter);
+		for next in &state.transitions[letter].0 {
 			result[*next] = match &result[*next] {
-				None => Some(RegexTree::Single(letter-1)),
+				None => Some(RegexTree::Single(letter_ind.into())),
 				Some(rt) => Some(
 					RegexTree::Or((
 						Box::new(rt.clone()),
-						Box::new(RegexTree::Single(letter-1))
+						Box::new(RegexTree::Single(letter_ind.into()))
 					))
 				)
 			};

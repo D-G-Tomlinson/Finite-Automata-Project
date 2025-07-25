@@ -94,7 +94,7 @@ impl Automata {
 	fn new_regex(regex_str:&str) -> Result<Automata,String> {
 		let dfa = None;
 		let nfa = None;
-		let regex:Option<Regex> = match Regex::from_string(regex_str.to_string()) {
+		let regex:Option<Regex> = match Regex::try_from(regex_str.to_string()) {
 			Err(e) => return Err(e),
 			Ok(reg) => Some(reg)
 		};
@@ -161,7 +161,7 @@ impl Automata {
 			if !self.nfa.is_some() {
 				self.nfa = Some(NFA::from(self.dfa.as_ref().unwrap()));
 			}
-			self.regex = Some(self.nfa.as_ref().unwrap().to_regex());
+			self.regex = Some(Regex::from(self.nfa.as_ref().unwrap()));
 		}
 		println!("Regex is: {}",self.regex.as_ref().unwrap().to_string());
 		return Ok(());

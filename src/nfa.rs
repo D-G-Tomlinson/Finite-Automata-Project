@@ -202,9 +202,6 @@ impl NFA {
 		r1.states.push(NFAState::new(new_transitions,false));
 		return Ok((*r1).clone());
 	}
-	pub fn to_regex(&self) -> Regex {
-		return crate::int_nfa_reg::nfa_to_regex(&self);
-	}
 }
 
 impl From<&DFA> for NFA {

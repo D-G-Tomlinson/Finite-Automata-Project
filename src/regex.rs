@@ -2,6 +2,9 @@ use std::fmt;
 use std::collections::HashMap;
 use crate::nfa::NFA;
 
+use std::convert::From;
+use std::convert::TryFrom;
+
 #[derive(Clone,Debug)]
 pub struct Regex {
 	alphabet:String,
@@ -12,11 +15,48 @@ impl Regex {
 	pub fn new(alphabet:String, tree:Option<RegexTree>) -> Regex {
 		Regex{alphabet,tree}
 	}
-	pub fn from_string(regex_in:String) -> Result<Regex,String> {
-		let regex_in:Vec<char>=regex_in.chars().collect();
-		let (regex, alphabet): (Vec<char>, String) =	match Regex::validate_regex(regex_in) {
+	pub fn to_nfa(&self) -> NFA{
+		return match &self.tree {
+			None => NFA::get_never_accept(self.alphabet.clone()),
+			Some(tree) => tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error")
+		};
+	}
+	
+	fn validate_regex(regex:&Vec<char>) -> Result<String,String> {
+		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
+		let valid_symbols = vec!['(',')','|','+','?','*'];
+		
+		let mut alphabet:Vec<char> = Vec::new();
+		let mut depth=0;
+		for c in regex {
+			if *c == '(' {
+				depth += 1;
+			} else if *c == ')' {
+				depth -= 1;
+			}
+		if depth == -1 {
+			return Err(format!("There is a closing bracket with no matching opening bracket"));
+		}
+		if !(valid_symbols.contains(c)||alphabet.contains(c)) {
+			alphabet.push(*c);
+		}
+		}
+		if depth != 0 {
+			return Err(format!("There are opening brackets that are not closed"));
+		}
+		return Ok(alphabet.iter().cloned().collect());
+	}
+
+}
+
+impl TryFrom<String> for Regex {
+	type Error = String;
+	
+	fn try_from(regex_in:String) -> Result<Self,Self::Error> {
+		let regex:Vec<char>=regex_in.chars().collect();
+		let alphabet: String =	match Regex::validate_regex(&regex) {
 			Err(e) => return Err(format!("Invalid regex. {}",e)),
-			Ok((a,b)) =>  (a,b)
+			Ok(a) => a
 		};
 		let alphabet = match crate::get_alphabet(&alphabet) {
 			Err(e) => return Err(e),
@@ -28,45 +68,14 @@ impl Regex {
 		let regex = RegexTree::from_in_progress(regex);
 		return Ok(Regex::new(alphabet, Some(regex)));
 	}
-
-	pub fn to_nfa(&self) -> NFA{
-		return match &self.tree {
-			None => NFA::get_never_accept(self.alphabet.clone()),
-			Some(tree) => tree.to_nfa(self.alphabet.clone()).expect("This only fails if two generated alphabets are different, which indicates a programming error, not a user error")
-		};
-	}
-	
-	fn validate_regex(regex:Vec<char>) -> Result<(Vec<char>,String),String> {
-		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
-		let valid_symbols = vec!['(',')','|','+','?','*'];
-		
-		let mut alphabet:Vec<char> = Vec::new();
-		let mut depth=0;
-		for c in &regex {
-			if *c == '(' {
-			depth += 1;
-			} else if *c == ')' {
-				depth -= 1;
-			}
-		if depth == -1 {
-			return Err(format!("There is a closing bracket with no matching opening bracket"));
-		}
-			/*
-			if !(*c >= 'a' && *c <= 'z'){
-			return None;
-		}
-			 */
-			if !(valid_symbols.contains(c)||alphabet.contains(c)) {
-			alphabet.push(*c);
-			}
-		}
-		if depth != 0 {
-			return Err(format!("There are opening brackets that are not closed"));
-		}
-		return Ok((regex, alphabet.iter().cloned().collect()));
-	}
-
 }
+
+impl From<&NFA> for Regex {
+	fn from(nfa:&NFA) -> Self {
+		return crate::int_nfa_reg::nfa_to_regex(nfa);
+	}
+}
+
 impl fmt::Display for Regex {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let alphabet = &self.alphabet;

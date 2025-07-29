@@ -333,5 +333,5 @@ impl From<Index0> for Index1 {
 }
 
 type StateNum = usize;
-#[derive(Clone,Debug)]
+#[derive(Clone,Debug,Hash,Eq,PartialEq)]
 struct Ordered(Vec<StateNum>);

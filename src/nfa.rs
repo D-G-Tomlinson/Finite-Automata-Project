@@ -12,8 +12,8 @@ use crate::dfa::ordered_union;
 
 use crate::regex::Regex;
 
-use crate::Index0;
 use crate::Index1;
+use crate::Index0;
 
 #[derive(Clone,Debug)]
 pub struct NFAState {
@@ -96,9 +96,10 @@ impl NFAState {
 	fn to_string(&self, alphabet:&str) -> String {
 		let mut output:String = String::new();
 		for i in 0..alphabet.len() {
-			let index:Index0 = Index0(i);
-			let letter = alphabet.chars().nth(index).unwrap();
-			for goal in &self.transitions[index.into::<Index1>().0].0 {
+			let index:Index0 = Index0(i);//for alphabet
+			let trans_num:Index1 = index.into();//for transitions list
+			let letter = alphabet.chars().nth(index.0).unwrap();
+			for goal in &self.transitions[trans_num.0].0 {
 				output.push(letter);
 				output.push(':');
 				output.push_str(&(goal+1).to_string());

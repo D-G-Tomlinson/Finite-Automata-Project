@@ -13,6 +13,8 @@ use crate::nfa::NFAState;
 use std::convert::From;
 use std::convert::TryFrom;
 
+use crate::Index1;
+
 #[derive(Clone)]
 pub struct DFA {
     pub states: Vec<DFAState>,
@@ -78,7 +80,7 @@ impl TryFrom<Vec<String>> for DFA {
 impl From<&NFA> for DFA {
 	fn from(nfa:&NFA) -> Self {
 		let equivalents:Vec<Ordered> = get_equivalents(&nfa.states);
-		let mut new_states:HashMap<Ordered,usize> = HashMap::new();
+		let mut new_states:HashMap<Ordered,StateNum> = HashMap::new();
 		let mut frontier:VecDeque<Ordered> = VecDeque::new();
 		let mut state_table:Vec<Vec<StateNum>> = Vec::new();
 		let mut accepts:Vec<bool> = Vec::new();
@@ -91,6 +93,7 @@ impl From<&NFA> for DFA {
 			let current = get_equivalents_vec(&frontier.pop_front().unwrap().0,&equivalents);
 			let current_row = new_states[&current];			
 			for i in 1..(num_letters+1) {
+				let i = Index1(i);
 				let next = get_to_vec(&nfa.states,&current.0,i,&equivalents);
 				if !new_states.contains_key(&next) {
 					add_line_to_table(&nfa.states,&mut new_states,&mut frontier,&mut state_table,&mut accepts,&next,&equivalents);
@@ -107,18 +110,18 @@ impl From<&NFA> for DFA {
 }
 
 
-fn get_to(states:&Vec<NFAState>, from:StateNum, by:usize,equivalents:&Vec<Ordered>) -> Ordered {
+fn get_to(states:&Vec<NFAState>, from:StateNum, by:Index1,equivalents:&Vec<Ordered>) -> Ordered {
 	let mut result:Ordered = Ordered(Vec::new());
 	let Ordered(from_states) = &equivalents[from];
 	for state in from_states {
-		let next = &states[*state].transitions[by].0;
+		let next = &states[*state].transitions[by.0].0;
 		let next_states = get_equivalents_vec(next,equivalents);
 		result = result.join(&next_states);
 	}
 	return result;
 }
 
-fn get_to_vec(states:&Vec<NFAState>, from:&Vec<StateNum>, by:usize, equivalents:&Vec<Ordered>) -> Ordered {
+fn get_to_vec(states:&Vec<NFAState>, from:&Vec<StateNum>, by:Index1, equivalents:&Vec<Ordered>) -> Ordered {
 	let eqs = from.into_iter().map(|state| get_to(states,*state,by,equivalents));
 	let mut result:Ordered = Ordered(Vec::new());
 	for state in eqs {
@@ -163,7 +166,7 @@ fn get_equivalents(states:&Vec<NFAState>) -> Vec<Ordered> {
 }	
 
 fn add_line_to_table(nfa_states:&Vec<NFAState>,
-					 new_states:&mut HashMap<Ordered,usize>,
+					 new_states:&mut HashMap<Ordered,StateNum>,
 					 frontier:&mut VecDeque<Ordered>,
 					 state_table:&mut Vec<Vec<StateNum>>,
 					 accepts:&mut Vec<bool>,
@@ -220,9 +223,9 @@ impl DFAState {
     pub fn new(transitions:Vec<StateNum>,accepting:bool) -> Self {
 		Self{transitions, accepting}
     }
-	fn from_line(line:&String,num_letters:usize,num_states:usize) -> Result<Self,String> {
+	fn from_line(line:&String,num_letters:usize,max_state:StateNum) -> Result<Self,String> {
 		let split_state:Vec<&str> = line.split(",").collect();
-		if split_state.len() != num_letters+1 {
+		if split_state.len() != num_letters + 1 {
 			return Err(format!("Invalid number of elements on line"));
 		}
 		
@@ -230,7 +233,7 @@ impl DFAState {
 		for next_state_str in (&split_state[0..num_letters]).into_iter(){
 			match next_state_str.parse::<StateNum>() {
 				Ok(next_state_num) => {
-					if next_state_num >= 1 && next_state_num <= num_states {
+					if next_state_num >= 1 && next_state_num <= max_state {
 						next_states.push(next_state_num-1)
 					} else {
 						return Err(format!("Value of next state is outside of the bounds of possible states"));

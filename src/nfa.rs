@@ -1,6 +1,7 @@
 use std::fmt;
 use std::collections::HashMap;
 
+use crate::StateNum;
 use crate::Ordered;
 
 use std::convert::From;
@@ -25,7 +26,7 @@ impl NFAState {
 		NFAState{transitions,accepting}
     }
 
-	fn get_transition(transition:&&str,alphabet:&HashMap<char,Index0>,num_states:usize) -> Result<(Index1,usize),String> {
+	fn get_transition(transition:&&str,alphabet:&HashMap<char,Index0>,max_state:StateNum) -> Result<(Index1,StateNum),String> {
 		let parts:Vec<&str> = transition.split(":").collect();
 		match parts.len() {
 			0 | 1 => return Err(format!("Each transition must have a ':'")),
@@ -48,11 +49,11 @@ impl NFAState {
 		};
 		
 			// get next state
-		let value:usize = match parts[1].parse::<usize>() {
+		let value:StateNum = match parts[1].parse::<StateNum>() {
 			Ok(n) => n,
 			Err(_) => return Err(format!("Next state must be a number"))
 		};
-		if value>num_states {
+		if value>max_state {
 			return Err(format!("The next state value is too big"));
 		} else if value == 0 {
 			return Err(format!("The next state cannot be zero, states are indexed from 1"))
@@ -61,19 +62,16 @@ impl NFAState {
 		return Ok((transition_num,value));
 	}
 	
-	pub fn from_line(line:&String,alphabet:&HashMap<char,Index0>,num_states:usize) -> Result<NFAState,String> {
+	pub fn from_line(line:&String,alphabet:&HashMap<char,Index0>,max_state:StateNum) -> Result<NFAState,String> {
 		let comma_split:Vec<&str> = line.split(",").collect();
 		let num_parts = comma_split.len();
-		let mut transitions:Vec<Vec<usize>> = vec![Vec::new();alphabet.len()+1]; // +1 because of the empty letter, the jump, is not in the alphabet but does have transitions
+		let mut transitions:Vec<Vec<StateNum>> = vec![Vec::new();alphabet.len()+1]; // +1 because of the empty letter, the jump, is not in the alphabet but does have transitions
 
 		for transition in (&comma_split[0..num_parts-1]).into_iter() {
-			let transition_num:Index1;
-			let value:usize;
-
-			match NFAState::get_transition(transition,alphabet,num_states) {
-				Ok(result) =>	(transition_num,value) = result,
+			let (transition_num,value) = match NFAState::get_transition(transition,alphabet,max_state) {
+				Ok(result) => result,
 				Err(e) => return Err(e)
-			}
+			};
 			
 			if !transitions[transition_num.0].contains(&value) {
 				transitions[transition_num.0].push(value);
@@ -130,12 +128,12 @@ impl From<&DFAState> for NFAState {
 #[derive(Clone,Debug)]
 pub struct NFA {
 	pub states:Vec<NFAState>,
-	pub starting:usize,
+	pub starting:StateNum,
 	pub alphabet:String
 }
 
 impl NFA {
-	pub fn new(states:Vec<NFAState>,starting:usize,alphabet:String) -> NFA {
+	pub fn new(states:Vec<NFAState>,starting:StateNum,alphabet:String) -> NFA {
 		NFA{states, starting, alphabet}
 	}
 	pub fn get_never_accept(alphabet:String) -> NFA {
@@ -206,7 +204,7 @@ impl NFA {
 			}
 		}
 		r1.states.append(&mut r2.states);
-		let mut new_transitions = vec![Ordered(Vec::<usize>::new());r1.alphabet.len()+1];
+		let mut new_transitions = vec![Ordered(Vec::<StateNum>::new());r1.alphabet.len()+1];
 
 		let mut jumps = vec![r1.starting,second_start];
 		jumps.sort();
@@ -246,7 +244,7 @@ impl TryFrom<Vec<String>> for NFA {
 			Ok(am) => am
 		};
 		let alphabet_hm = crate::get_alphabet_hm(&lines[0]);
-		let starting = match lines[1].parse::<usize>() {
+		let starting = match lines[1].parse::<StateNum>() {
 			Ok(n) => {
 				if n <= num_lines - 2 && n>0 {
 					n-1

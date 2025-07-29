@@ -1,3 +1,4 @@
+use crate::StateNum;
 use crate::regex::RegexTree;
 use crate::regex::Regex;
 use crate::nfa::NFA;
@@ -15,7 +16,7 @@ pub fn nfa_to_regex(nfa:&NFA) -> Regex {
 	return Regex::new(alphabet,rt.clone());
 }
 
-fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:usize) {
+fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:StateNum) {
 	//all lines before this one have already been removed so can be ignored.
 
 	let self_loop = table[line][line].clone();
@@ -48,7 +49,7 @@ fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:usize) {
 	}
 }
 
-fn get_leaving(line:Vec<Option<RegexTree>>,num:usize) -> Vec<(RegexTree,usize)> {
+fn get_leaving(line:Vec<Option<RegexTree>>,num:StateNum) -> Vec<(RegexTree,StateNum)> {
 	let mut result = Vec::new();
 	for i in 0..line.len() {
 		if i!=num {

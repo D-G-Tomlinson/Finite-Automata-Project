@@ -346,7 +346,7 @@ impl Ordered {
 		return Self(v1.to_vec());
 	}
 	
-	let mut result:Vec<usize> = Vec::new();
+	let mut result:Vec<StateNum> = Vec::new();
 	let mut i = 0;
 	let mut j = 0;
 	if v1[0]<v2[0] {

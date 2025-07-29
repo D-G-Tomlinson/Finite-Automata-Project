@@ -113,7 +113,7 @@ fn get_to(states:&Vec<NFAState>, from:StateNum, by:usize,equivalents:&Vec<Ordere
 	for state in from_states {
 		let next = &states[*state].transitions[by].0;
 		let next_states = get_equivalents_vec(next,equivalents);
-		result = ordered_union(&result, &next_states);
+		result = result.join(&next_states);
 	}
 	return result;
 }
@@ -122,7 +122,7 @@ fn get_to_vec(states:&Vec<NFAState>, from:&Vec<StateNum>, by:usize, equivalents:
 	let eqs = from.into_iter().map(|state| get_to(states,*state,by,equivalents));
 	let mut result:Ordered = Ordered(Vec::new());
 	for state in eqs {
-		result = ordered_union(&result,&state);
+		result = result.join(&state);
 		}
 	return result;
 }
@@ -132,7 +132,7 @@ fn get_equivalents_vec(states:&Vec<StateNum>,equivalents:&Vec<Ordered>) -> Order
 	let mut result = Ordered(Vec::new());
 	for state in states {
 		let eqs = &equivalents[*state];
-		result = ordered_union(&result,eqs);
+		result = result.join(eqs);
 	}
 	return result;
 }
@@ -141,7 +141,7 @@ fn get_equivalents_vec(states:&Vec<StateNum>,equivalents:&Vec<Ordered>) -> Order
 fn get_equivalents(states:&Vec<NFAState>) -> Vec<Ordered> {		
 	let num_states = states.len();
 	let mut eqs:Vec<Ordered> = (0..num_states)
-		.map(|i| ordered_union(&Ordered(vec![i]), &states[i].transitions[0])).collect();
+		.map(|i| Ordered(vec![i]).join(&states[i].transitions[0])).collect();
 	let mut changed = true;
 	while changed {
 		changed = false;
@@ -150,7 +150,7 @@ fn get_equivalents(states:&Vec<NFAState>) -> Vec<Ordered> {
 				if eqs[i].0.contains(&j)  {
 					let v1 = &eqs[i];
 					let v2 = &eqs[j];
-					let new = ordered_union(&v1,&v2);
+					let new = v1.join(&v2);
 					if v1.0 != new.0 {
 						changed=true;
 						eqs[i]=new;
@@ -194,55 +194,6 @@ fn is_accepting_vec(nfa_states:&Vec<NFAState>,input_states:&Ordered,equivalents:
 	return false;
 }
 
-
-pub fn ordered_union(v1:&Ordered,v2:&Ordered) -> Ordered {
-	let Ordered(v1) = v1;
-	let Ordered(v2) = v2;
-	
-	if v1.len()==0 {
-		return Ordered(v2.to_vec());
-	} else if v2.len()==0 {
-		return Ordered(v1.to_vec());
-	}
-	
-	let mut result:Vec<usize> = Vec::new();
-	let mut i = 0;
-	let mut j = 0;
-	if v1[0]<v2[0] {
-			result.push(v1[0]);
-	} else {
-		result.push(v2[0]);
-	}
-		
-	while i < v1.len() || j < v2.len() {
-		let consider_v1:bool;
-		if i==v1.len() {
-			consider_v1 = false;
-		} else if j==v2.len() {
-			consider_v1 = true;
-		} else if v1[i]<=v2[j] {
-			consider_v1 = true;
-		} else {
-			consider_v1 = false;
-		}
-		if consider_v1 {
-			if result.last().unwrap() == &v1[i] {
-				i=i+1
-			} else {
-				result.push(v1[i]);
-				i=i+1;
-			}
-		} else {
-			if result.last().unwrap() == &v2[j] {
-				j=j+1
-			} else {
-				result.push(v2[j]);
-				j=j+1;
-			}
-		}
-	}
-	return Ordered(result);
-}
 
 
 impl fmt::Display for DFA {

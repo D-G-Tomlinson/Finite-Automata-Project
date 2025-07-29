@@ -3,7 +3,6 @@ use crate::regex::Regex;
 use crate::nfa::NFA;
 use crate::nfa::NFAState;
 
-use crate::Index0;
 use crate::Index1;
 
 pub fn nfa_to_regex(nfa:&NFA) -> Regex {

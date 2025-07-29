@@ -8,7 +8,6 @@ use std::convert::TryFrom;
 
 use crate::dfa::DFA;
 use crate::dfa::DFAState;
-use crate::dfa::ordered_union;
 
 use crate::regex::Regex;
 
@@ -153,7 +152,7 @@ impl NFA {
 		let len = self.states.len();
 		for s in &mut self.states {
 			if s.accepting {
-				s.transitions[0] = ordered_union(&s.transitions[0], &Ordered(vec![len]));
+				s.transitions[0] = s.transitions[0].join(&Ordered(vec![len]));
 				s.accepting = false
 			}
 		}
@@ -179,7 +178,7 @@ impl NFA {
 		
 		for state in &mut r1.states {
 			if state.accepting {
-				state.transitions[0] = ordered_union(&state.transitions[0],&Ordered(vec![second_start]));
+				state.transitions[0] = state.transitions[0].join(&Ordered(vec![second_start]));
 				state.accepting = false;
 			}
 		}

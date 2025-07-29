@@ -7,7 +7,6 @@ use std::convert::TryFrom;
 
 use crate::Index0;
 
-
 #[derive(Clone,Debug)]
 pub struct Regex {
 	pub alphabet:String,

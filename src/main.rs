@@ -335,3 +335,54 @@ impl From<Index0> for Index1 {
 type StateNum = usize;
 #[derive(Clone,Debug,Hash,Eq,PartialEq)]
 struct Ordered(Vec<StateNum>);
+impl Ordered {
+	pub fn join(&self,v2:&Self) -> Self {
+	let Self(v1) = self;
+	let Self(v2) = v2;
+	
+	if v1.len()==0 {
+		return Self(v2.to_vec());
+	} else if v2.len()==0 {
+		return Self(v1.to_vec());
+	}
+	
+	let mut result:Vec<usize> = Vec::new();
+	let mut i = 0;
+	let mut j = 0;
+	if v1[0]<v2[0] {
+			result.push(v1[0]);
+	} else {
+		result.push(v2[0]);
+	}
+		
+	while i < v1.len() || j < v2.len() {
+		let consider_v1:bool;
+		if i==v1.len() {
+			consider_v1 = false;
+		} else if j==v2.len() {
+			consider_v1 = true;
+		} else if v1[i]<=v2[j] {
+			consider_v1 = true;
+		} else {
+			consider_v1 = false;
+		}
+		if consider_v1 {
+			if result.last().unwrap() == &v1[i] {
+				i=i+1
+			} else {
+				result.push(v1[i]);
+				i=i+1;
+			}
+		} else {
+			if result.last().unwrap() == &v2[j] {
+				j=j+1
+			} else {
+				result.push(v2[j]);
+				j=j+1;
+			}
+		}
+	}
+	return Self(result);
+}
+
+}

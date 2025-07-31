@@ -18,27 +18,27 @@ use clap::Parser; //allows me flexibility with reading commandline arguments
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /// Location of the file storing the finite automaton
+    /// Location of the file storing the finite automaton (.dfa or .nfa).
     #[arg(short,long)]
     input: Option<String>,
 
-    /// The word to be analysed
-    #[arg(short, long)]
-    word: Option<String>,
-
-    /// Location of the DFA file to write the converted input to
-    #[arg(short, long)]
-    dfa_output: Option<String>,
-
-    /// Regular expression to be evaluated or converted. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions
+    /// Regular expression to be evaluated or converted. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions, | is or.
     #[arg(short, long)]
     regex: Option<String>,
 
-    /// Location of the DFA file to write the converted input to
+    /// The word to be validated.
+    #[arg(short, long)]
+    word: Option<String>,
+
+    /// Location of the DFA file to write the converted input to.
+    #[arg(short, long)]
+    dfa_output: Option<String>,
+
+    /// Location of the NFA file to write the converted input to.
     #[arg(short, long)]
     nfa_output: Option<String>,
 
-	/// Flag if a converted regex is desired
+	/// Flag if a converted regex is desired.
 	#[arg(long)]
 	regex_output: bool,
 }

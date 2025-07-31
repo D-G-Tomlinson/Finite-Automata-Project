@@ -85,7 +85,7 @@ impl fmt::Display for Regex {
 }
 
 /*
-fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessary, but it should simplify the resultant Automata, which is useful with the 64 state limit in NFA.Ccan be done at a later stage of the project
+fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessary, but it should simplify the resultant NFA
     let mut changed = true;
     while changed {
 	changed = false;

@@ -14,13 +14,13 @@ pub struct Regex {
 }
 
 impl Regex {
+	//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','	
+	pub const VALID_SYMBOLS:[char;6] = ['(',')','|','+','?','*'];
+
 	pub fn new(alphabet:String, tree:Option<RegexTree>) -> Regex {
 		Regex{alphabet,tree}
 	}
 	fn validate_regex(regex:&Vec<char>) -> Result<String,String> {
-		//valid characters are (,),|,+,?,*, and all lowercase ascii letters other than ':' or ','
-		let valid_symbols = vec!['(',')','|','+','?','*'];
-		
 		let mut alphabet:Vec<char> = Vec::new();
 		let mut depth=0;
 		for c in regex {
@@ -32,7 +32,7 @@ impl Regex {
 		if depth == -1 {
 			return Err(format!("There is a closing bracket with no matching opening bracket"));
 		}
-		if !(valid_symbols.contains(c)||alphabet.contains(c)) {
+		if !(Self::VALID_SYMBOLS.contains(c)||alphabet.contains(c)) {
 			alphabet.push(*c);
 		}
 		}

@@ -289,7 +289,7 @@ fn get_alphabet(alphabet:&str) -> Result<String,String> {
 	let invalid_letters = vec![':',','];
 	let mut result:Vec<char> = Vec::new();
 	for c in alphabet.chars() {
-		if invalid_letters.contains(&c) {
+		if invalid_letters.contains(&c) || Regex::VALID_SYMBOLS.contains(&c){
 			return Err(format!("The alphabet cannot contain {}",c));
 		} 
 		if !result.contains(&c) {

@@ -17,16 +17,22 @@ This program takes in one of:
 - The address of a .nfa file containing a Non-deterministic Finite Automata (NFA) with the option --input.
 - A regex as a string with the option --regex.
 
+### DFA
+
  The structure of a .dfa file with m states is:
  - The first line is the alphabet.
  - The second line is the starting state number (indexed from 1).
  - Lines 3 through m+2 (inclusive) contain a comma-seperated-list of the state (indexed from 1) reached from this state, by the corresponding letter of the alphabet, followed by "true" or "false" depending on if the state is accepting.
- 
+
+### NFA
+
  The structure of a .nfa file with m states is:
  - The first line is the alphabet.
  - The second line is the starting state number (indexed from 1).
  - Lines 3 through m+2 contain a comma-seperated-list of arrows out of that state, in the format _letter:next-state-number_, followed by "true" or "false" depending on if the state is accepting
    - The number of letter:next-state-number pairs is unrestricted, as NFAs can have multiple arrows with the same letter from the same state, or no arrows at all. To represent a jump, have no alphabet character preceeding the ":".
+
+### Regex
 
 The regex understood by the program consists of operators and base characters. The operators, in order of priority, are as follows:
 - () used to control the order of operation.
@@ -42,6 +48,8 @@ The program can produce any of the following output, including multiple options 
 - A DFA equivalent to the input, written to a .dfa file specified with --dfa-output.
 - An NFA equivalent to the input, written to a .nfa file specified with --nfa-output.
 - A regex equivalent to the input, printed to the standard output, with the flag --regex-output
+
+## Example Use
 
 For example the command
 

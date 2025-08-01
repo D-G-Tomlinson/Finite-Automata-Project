@@ -313,10 +313,10 @@ fn get_alphabet_hm(alphabet:&str) -> HashMap<char,Index0> {
 	}
 	return alphabet_hashmap;
 }
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug)]
 struct Index0(usize); // alphabet indexing with first letter at 0
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug)]
 struct Index1(usize); // alphabet indexing with first letter at 1, jump at 0
 
 impl From<Index1> for Index0 {

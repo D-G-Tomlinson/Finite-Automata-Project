@@ -141,7 +141,7 @@ fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
 	return NFA::or(&mut r1,&mut r2);
 }
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone,Debug)]
 pub enum RegexTree {
     Empty,
     Single(Index0),
@@ -164,9 +164,18 @@ impl RegexTree {
 		};
 	}
 
-	fn find_last_before(input:&Vec<InProgress>, val:InProgress,start:usize) -> Option<usize> {
+	fn find_next_close(input:&Vec<InProgress>,start:usize) -> Option<usize> {
+		for i in start..input.len() {
+			if let InProgress::Close = input[i] {
+				return Some(i)
+			}
+		}
+		return None;
+	}
+	
+	fn find_last_open(input:&Vec<InProgress>,start:usize) -> Option<usize> {
 		for i in (start-1)..=0 {
-			if input[i] == val {
+			if let InProgress::Open = input[i] {
 				return Some(i);
 			}
 		}
@@ -174,8 +183,11 @@ impl RegexTree {
 	}
 
 	fn process_brackets(input:&mut Vec<InProgress>) {
-		while let Some(end) = input.into_iter().position(|val| *val == InProgress::Close) {
-			let start = Self::find_last_before(&input,InProgress::Open,end).expect("Each closing bracket must have an opening");
+		let mut start_search = 0;
+		while let Some(end) = Self::find_next_close(input, start_search) {
+			let start = Self::find_last_open(&input,end).expect("Each closing bracket must have an opening");
+			start_search = start+1;
+
 			input.remove(start);
 			if start == end -1 {
 				input[start] = InProgress::Reg(Self::Empty);
@@ -189,41 +201,24 @@ impl RegexTree {
 		}
 	}
 
+	fn add_unary(input:&mut Vec<InProgress>, i:usize, f:fn(Box<Self>) -> Self) {
+		if i == 0 {
+			input[0] = InProgress::Reg(Self::Empty);
+		} else if let InProgress::Reg(r) = &input[i-1] {
+			input[i-1] = InProgress::Reg(f(Box::new(r.clone())));
+			input.remove(i);
+		} else {
+			input[i] = InProgress::Reg(Self::Empty);
+		}
+	}
+	
 	fn process_unary(input:&mut Vec<InProgress>) {
 		let mut i = 0;
 		while i < input.len() {
 			match &input[i] {
-				InProgress::KStar => {
-					if i == 0 {
-						input[0] = InProgress::Reg(Self::Empty);
-						i = i + 1
-					} else if let InProgress::Reg(r) = &input[i-1] {
-						input[i-1] = InProgress::Reg(Self::KleeneStar(Box::new(r.clone())));
-						input.remove(i);
-					} else {
-						input[i] = InProgress::Reg(Self::Empty);
-					}
-				},
-				InProgress::KPlus => {
-					if i == 0 {
-						input[0] = InProgress::Reg(Self::Empty);
-					} else if let InProgress::Reg(r) = &input[i-1] {
-						input[i-1] = InProgress::Reg(Self::KleenePlus(Box::new(r.clone())));
-						input.remove(i);
-					} else {
-						input[i] = InProgress::Reg(Self::Empty);
-					}
-				},
-				InProgress::QMark => {
-					if i == 0 {
-						input[0] = InProgress::Reg(Self::Empty);
-					} else if let InProgress::Reg(r) = &input[i-1] {
-						input[i-1] = InProgress::Reg(Self::QMark(Box::new(r.clone())));
-						input.remove(i);
-					} else {
-						input[i] = InProgress::Reg(Self::Empty);
-					}
-				},
+				InProgress::KStar => Self::add_unary(input, i, |r| Self::KleeneStar(r)),
+				InProgress::KPlus => Self::add_unary(input, i, |r| Self::KleenePlus(r)),
+				InProgress::QMark => Self::add_unary(input, i, |r| Self::QMark(r)),
 				_ => i = i + 1
 			}
 		}
@@ -366,7 +361,7 @@ impl From<Vec<InProgress>> for RegexTree {
 
 }
 
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone,Debug)]
 enum InProgress {
     Reg(RegexTree),
     KStar,

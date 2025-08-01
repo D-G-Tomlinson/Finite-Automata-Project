@@ -164,37 +164,15 @@ impl RegexTree {
 		};
 	}
 
-	fn find_next_close(input:&Vec<InProgress>,start:usize) -> Option<usize> {
-		for i in start..input.len() {
-			if let InProgress::Close = input[i] {
-				return Some(i)
-			}
-		}
-		return None;
-	}
-	
-	fn find_last_open(input:&Vec<InProgress>,start:usize) -> Option<usize> {
-		for i in (start-1)..=0 {
-			if let InProgress::Open = input[i] {
-				return Some(i);
-			}
-		}
-		return None;
-	}
-
 	fn process_brackets(input:&mut Vec<InProgress>) {
-		let mut start_search = 0;
-		while let Some(end) = Self::find_next_close(input, start_search) {
-			let start = Self::find_last_open(&input,end).expect("Each closing bracket must have an opening");
-			start_search = start+1;
-
-			input.remove(start);
-			if start == end -1 {
-				input[start] = InProgress::Reg(Self::Empty);
-			} else {
+		for start in (0..input.len()).rev() {
+			if let InProgress::Open = input[start] {
 				let mut sub_bracket:Vec<InProgress> = Vec::new();
-				for _ in start..(end-1) {
-					sub_bracket.push(input.remove(start));
+				loop {
+					match input.remove(start+1) {
+						InProgress::Close => break,
+						r => sub_bracket.push(r)
+					}
 				}
 				input[start] = InProgress::Reg(Self::from(sub_bracket));
 			}
@@ -213,31 +191,23 @@ impl RegexTree {
 	}
 	
 	fn process_unary(input:&mut Vec<InProgress>) {
-		let mut i = 0;
-		while i < input.len() {
+		for i in (0..input.len()).rev() {
 			match &input[i] {
 				InProgress::KStar => Self::add_unary(input, i, |r| Self::KleeneStar(r)),
 				InProgress::KPlus => Self::add_unary(input, i, |r| Self::KleenePlus(r)),
 				InProgress::QMark => Self::add_unary(input, i, |r| Self::QMark(r)),
-				_ => i = i + 1
+				_ => ()
 			}
 		}
 	}
 
 	fn process_concat(input:&mut Vec<InProgress>) {
-		let mut i = 0;
-		while i < input.len() - 1 {
-			match &input[i] {
-				InProgress::Reg(r1) => {
-					match &input[i + 1] {
-						InProgress::Reg(r2) => {
-							input[i] = InProgress::Reg(Self::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
-							input.remove(i + 1);			
-						},
-						_ => i = i + 1 
-					}
-				},
-				_ => i = i + 1
+		for i in (1..input.len()).rev() {
+			if let InProgress::Reg(r2) = &input[i] {
+				if let InProgress::Reg(r1) = &input[i-1] {
+					input[i-1] = InProgress::Reg(Self::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
+					input.remove(i);
+				}
 			}
 		}
 	}
@@ -245,41 +215,39 @@ impl RegexTree {
 	fn process_or(input:&mut Vec<InProgress>) {
 		let mut i = 0;
 		while i < input.len() {
-			match &input[i] {
-				InProgress::Or => {
-					let r1;
-					if i == 0 {
-						r1 = Self::Empty;
-					} else if let InProgress::Reg(temp) = &input[i-1] {
-						r1 = (*temp).clone();
-						i = i - 1;
+			if let InProgress::Or = input[i] {
+				let r1;
+				if i == 0 {
+					r1 = Self::Empty;
+				} else if let InProgress::Reg(temp) = &input[i-1] {
+					r1 = (*temp).clone();
 						input.remove(i);
-					} else {
-						r1 = Self::Empty;//this will never be reached, as all other possible InProgress values have been removed
+					i = i - 1; // so i is still pointing to the Or.
+				} else {
+					r1 = Self::Empty;//this will never be reached, as all other possible InProgress values have been removed
 					}					
-					let r2;
-					if i == input.len() - 1 {
-						r2 = Self::Empty;
-					} else if let InProgress::Reg(temp) = &input[i + 1] {
-						r2 = (*temp).clone();
-						input.remove(i + 1);
-					} else {
-						r2 = Self::Empty;
-					}
-					let new_val = match r1 {
-						Self::Empty => match r2 {
-							Self::Empty => Self::Empty,
-							r => Self::QMark(Box::new(r))
-						},
-						r1 => match r2 {
-							Self::Empty => Self::QMark(Box::new(r1)),
+				let r2;
+				if i == input.len() - 1 {
+					r2 = Self::Empty;
+				} else if let InProgress::Reg(temp) = &input[i + 1] {
+					r2 = (*temp).clone();
+					input.remove(i + 1);
+				} else {
+						r2 = Self::Empty;// this could be another Or though
+				}
+				let new_val = match r1 {
+					Self::Empty => match r2 {
+						Self::Empty => Self::Empty,
+						r => Self::QMark(Box::new(r))
+					},
+					r1 => match r2 {
+						Self::Empty => Self::QMark(Box::new(r1)),
 							r2 => Self::Or((Box::new(r1),Box::new(r2)))
-						}
-					};
-					input[i] = InProgress::Reg(new_val);
-				},
-				_ => i = i + 1
+					}
+				};
+				input[i] = InProgress::Reg(new_val);
 			}
+			i = i + 1;
 		}
 	}
 	

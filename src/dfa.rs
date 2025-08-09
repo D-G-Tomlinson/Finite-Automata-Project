@@ -53,7 +53,7 @@ impl TryFrom<Vec<String>> for DFA {
 	type Error=String;
 	fn try_from(lines:Vec<String>) -> Result<Self,Self::Error> {
 		if lines.len()<3 {
-			return Err(format!("Input file is too short"));
+			return Err("Input file is too short".to_string());
 		}
 		
 		let alphabet = match crate::get_alphabet(&lines[0]) {
@@ -226,7 +226,7 @@ impl DFAState {
 	fn from_line(line:&String,num_letters:usize,max_state:StateNum) -> Result<Self,String> {
 		let split_state:Vec<&str> = line.split(",").collect();
 		if split_state.len() != num_letters + 1 {
-			return Err(format!("Invalid number of elements on line"));
+			return Err("Invalid number of elements on line".to_string());
 		}
 		
 		let mut next_states:Vec<StateNum> = Vec::new();
@@ -236,17 +236,17 @@ impl DFAState {
 					if next_state_num >= 1 && next_state_num <= max_state {
 						next_states.push(next_state_num-1)
 					} else {
-						return Err(format!("Value of next state is outside of the bounds of possible states"));
+						return Err("Value of next state is outside of the bounds of possible states".to_string());
 					}
 				},
-				Err(_) => return Err(format!("Value for next state is not a valid number")),
+				Err(_) => return Err("Value for next state is not a valid number".to_string()),
 			}
 		}
 		
 		let accept:bool;
 		match split_state[num_letters].parse() {
 			Ok(a) => accept = a,
-			Err(_) => return Err(format!("Poorly formatted accepting/not accepting value.")),
+			Err(_) => return Err("Poorly formatted accepting/not accepting value.".to_string()),
 		}
 		
 		return Ok(

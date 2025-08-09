@@ -22,7 +22,7 @@ struct Cli {
     #[arg(short,long)]
     input: Option<String>,
 
-    /// Regular expression to be evaluated or converted. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repitions, * is + but also zero repetitions, ? is zero or one repetitions, | is or.
+    /// Regular expression to be evaluated or converted. ':' and ',' are not valid. () is used to alter order of operations, + is any positive number of repetitions, * is + but also zero repetitions, ? is zero or one repetitions, | is or.
     #[arg(short, long)]
     regex: Option<String>,
 
@@ -56,7 +56,7 @@ impl Automata {
 			Err(e) => return Err(e),
 			Ok(it) => it
 		};
-		
+
 		let lines:Vec<String>;
 		if input_type == InputType::Regex {
 			lines=Vec::new();
@@ -72,7 +72,7 @@ impl Automata {
 			InputType::Regex => Automata::new_regex(cli.regex.as_deref().unwrap())
 		};
 	}
-	
+
 	fn new_dfa(lines:Vec<String>) -> Result<Automata,String> {
 		let dfa = match DFA::try_from(lines) {
 			Err(e) => return Err(e),
@@ -88,11 +88,11 @@ impl Automata {
 		let nfa = match NFA::try_from(lines) {
 			Err(e) => return Err(e),
 			Ok(nfa_in) => Some(nfa_in)
-		};		
+		};
 		let regex = None;
 		return Ok(Automata{dfa,nfa,regex});
 	}
-	
+
 	fn new_regex(regex_str:&str) -> Result<Automata,String> {
 		let dfa = None;
 		let nfa = None;
@@ -103,30 +103,28 @@ impl Automata {
 		return Ok(Automata{dfa,nfa,regex});
 	}
 
+
+	fn ensure_dfa(&mut self) {
+		if !self.dfa.is_some() {
+			if !self.nfa.is_some() {
+				self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()));
+			}
+			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
+		}
+	}
 	fn run(&mut self, word:&str) -> Rslt {
 		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
-			return Rslt::Err(format!("Automata list is unitialised"));
+			return Rslt::Err("Automata list is unitialised".to_string());
 		}
-		if !self.dfa.is_some() {
-			if !self.nfa.is_some() {
-				self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()));
-			}
-			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
-		}
+		self.ensure_dfa();
 		return self.dfa.as_ref().unwrap().run(word);
 	}
-	
+
 	fn output_dfa(&mut self,address:&str) -> Result<(),String>{
 		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
-			return Err(format!("Automata list is unitialised"));
+			return Err("Automata list is unitialised".to_string());
 		}
-		if !self.dfa.is_some() {
-			if !self.nfa.is_some() {
-				self.nfa = Some(NFA::from(self.regex.as_ref().unwrap()));
-			}
-			self.dfa = Some(DFA::from(self.nfa.as_ref().unwrap()));
-		}
-
+		self.ensure_dfa();
 		return match print_to_file(self.dfa.as_ref().unwrap().to_string(),address) {
 			Ok(()) => {
 				println!("DFA written to {}",address);
@@ -135,10 +133,10 @@ impl Automata {
 			Err(e) => Err(e)
 		}
 	}
-	
+
 	fn output_nfa(&mut self,address:&str) -> Result<(),String> {
 		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
-			return Err(format!("Automata list is unitialised"));
+			return Err("Automata list is unitialised".to_string());
 		}
 		if !self.nfa.is_some() {
 			match self.dfa.is_some() {
@@ -154,10 +152,10 @@ impl Automata {
 			Err(e) => Err(e)
 		}
 	}
-	
+
 	fn output_regex(&mut self) -> Result<(),String>{
 		if !(self.regex.is_some()||self.nfa.is_some()||self.dfa.is_some()) {
-			return Err(format!("Automata list is unitialised"));
+			return Err("Automata list is unitialised".to_string());
 		}
 		if !self.regex.is_some() {
 			if !self.nfa.is_some() {
@@ -168,7 +166,7 @@ impl Automata {
 		println!("Regex is: {}",self.regex.as_ref().unwrap().to_string());
 		return Ok(());
 	}
-	
+
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -183,22 +181,21 @@ pub enum Rslt {
     Rej,//the word is rejected
     Nop,//no word is provided "no operation performed"
     Notodo, //nothing to do, no word or output file provided
-    Err(String) // some error occured, due to invalid input
+    Err(String) // some error occurred, due to invalid input
 }
 
-//Although some input validation is done, it is not comprehensive - this project is an exercise in regular langauge representation, conversion and computation, rather than data validation
 fn main() {
 
     println!("Use the --help option (i.e. cargo run -- --help) to learn about possible options.");
-    
+
     let cli = Cli::parse();
     let result=run_automata(&cli);
     println!("{}", match result {
 		Rslt::Err(e) => format!("Program failed! The following error was produced: \n{}",e),
-		Rslt::Acc => format!("ACCEPT"),
-		Rslt::Rej => format!("REJECT"),
-		Rslt::Nop => format!("No word provided, program finished without computation, only conversion."),
-		Rslt::Notodo => format!("No word or output file provided, nothing to do."),
+		Rslt::Acc => "ACCEPT".to_string(),
+		Rslt::Rej => "REJECT".to_string(),
+		Rslt::Nop => "No word provided, program finished without computation, only conversion.".to_string(),
+		Rslt::Notodo => "No word or output file provided, nothing to do.".to_string(),
     });
     return;
 }
@@ -208,7 +205,7 @@ fn run_automata(cli:&Cli) -> Rslt {
 	if !(cli.word.as_deref().is_some() ||cli.dfa_output.as_deref().is_some()||cli.nfa_output.as_deref().is_some()||cli.regex_output) {
 		return Rslt::Notodo;
 	}
-	
+
 	let mut autos:Automata = match Automata::new(cli) {
 		Err(e) => return Rslt::Err(e),
 		Ok(a) => a
@@ -247,16 +244,16 @@ fn get_input_type(cli:&Cli) -> Result<InputType,String> {
 	return match &cli.input.as_deref() {
 		None => match is_regex {
 			true => Ok(InputType::Regex),
-			false => Err(format!("No automata or regex provided."))
+			false => Err("No automata or regex provided.".to_string())
 		},
 		Some(address) => match is_regex {
-			true => Err(format!("Cannot input both regex and other automata")),
+			true => Err("Cannot input both regex and other automata".to_string()),
 			false => match address.split('.').last().unwrap().to_uppercase().as_str() {
 				"DFA" => Ok(InputType::Dfa),
 				"NFA" => Ok(InputType::Nfa),
 				_ => {
-					return Err(format!("File type is unsupported."));
-				}				
+					return Err("File type is unsupported.".to_string());
+				}
 			}
 		}
 	}
@@ -267,7 +264,7 @@ fn read_input_file(address:&str) -> Result<Vec<String>,String> {
     match File::open(address) {
 		Ok(mut f) => _ = f.read_to_string(&mut contents),
 		Err(_) => {
-			return Err(format!("Cannot read file."));
+			return Err("Cannot read file.".to_string());
 		}
     }
     let lines = contents.lines().map(|s| s.to_string()).collect();
@@ -291,7 +288,7 @@ fn get_alphabet(alphabet:&str) -> Result<String,String> {
 	for c in alphabet.chars() {
 		if invalid_letters.contains(&c) || Regex::VALID_SYMBOLS.contains(&c){
 			return Err(format!("The alphabet cannot contain {}",c));
-		} 
+		}
 		if !result.contains(&c) {
 			result.push(c);
 		}
@@ -302,7 +299,7 @@ fn get_alphabet(alphabet:&str) -> Result<String,String> {
 fn get_alphabet_hm(alphabet:&str) -> HashMap<char,Index0> {
 
 	let alphabet = alphabet.chars();
-	
+
 	let mut alphabet_hashmap = HashMap::<char,Index0>::new();
 	let mut i = Index0(0); //not to be read here, only passed to dfa so ignoring jump is fine
 	for c in alphabet {
@@ -339,13 +336,13 @@ impl Ordered {
 	pub fn join(&self,v2:&Self) -> Self {
 	let Self(v1) = self;
 	let Self(v2) = v2;
-	
+
 	if v1.len()==0 {
 		return Self(v2.to_vec());
 	} else if v2.len()==0 {
 		return Self(v1.to_vec());
 	}
-	
+
 	let mut result:Vec<StateNum> = Vec::new();
 	let mut i = 0;
 	let mut j = 0;
@@ -354,7 +351,7 @@ impl Ordered {
 	} else {
 		result.push(v2[0]);
 	}
-		
+
 	while i < v1.len() || j < v2.len() {
 		let consider_v1:bool;
 		if i==v1.len() {

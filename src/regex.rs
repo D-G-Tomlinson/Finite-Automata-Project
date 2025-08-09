@@ -30,14 +30,14 @@ impl Regex {
 				depth -= 1;
 			}
 		if depth == -1 {
-			return Err(format!("There is a closing bracket with no matching opening bracket"));
+			return Err("There is a closing bracket with no matching opening bracket".to_string());
 		}
 		if !(Self::VALID_SYMBOLS.contains(c)||alphabet.contains(c)) {
 			alphabet.push(*c);
 		}
 		}
 		if depth != 0 {
-			return Err(format!("There are opening brackets that are not closed"));
+			return Err("There are opening brackets that are not closed".to_string());
 		}
 		return Ok(alphabet.iter().cloned().collect());
 	}
@@ -320,10 +320,10 @@ impl From<Vec<InProgress>> for RegexTree {
 		Self::process_concat(&mut input);
 		//now just to deal with the Ors
 		Self::process_or(&mut input);
-		if let InProgress::Reg(r) = &input[0] {
-			return r.clone();
+		return if let InProgress::Reg(r) = &input[0] {
+			r.clone()
 		} else {
-			return Self::Empty; //can't be reached due to earlier code
+			Self::Empty //can't be reached due to earlier code
 		}
 	}
 

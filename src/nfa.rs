@@ -29,9 +29,9 @@ impl NFAState {
 	fn get_transition(transition:&&str,alphabet:&HashMap<char,Index0>,max_state:StateNum) -> Result<(Index1,StateNum),String> {
 		let parts:Vec<&str> = transition.split(":").collect();
 		match parts.len() {
-			0 | 1 => return Err(format!("Each transition must have a ':'")),
+			0 | 1 => return Err("Each transition must have a ':'".to_string()),
 			2 => (),
-			_ => return Err(format!("Each transition must have only one ':'")),
+			_ => return Err("Each transition must have only one ':'".to_string()),
 		};
 		
 		// get letter
@@ -42,21 +42,21 @@ impl NFAState {
 				if alphabet.contains_key(&chars[0]) {
 					alphabet[&chars[0]].into()//must be plus one because zero represents jump
 				} else {
-					return Err(format!("The transition letter must be in the alphabet"));
+					return Err("The transition letter must be in the alphabet".to_string());
 				}
 			},
-			_ => return Err(format!("Each transition must have one or no letters, not multiple"))
+			_ => return Err("Each transition must have one or no letters, not multiple".to_string())
 		};
 		
 			// get next state
 		let value:StateNum = match parts[1].parse::<StateNum>() {
 			Ok(n) => n,
-			Err(_) => return Err(format!("Next state must be a number"))
+			Err(_) => return Err("Next state must be a number".to_string())
 		};
 		if value>max_state {
-			return Err(format!("The next state value is too big"));
+			return Err("The next state value is too big".to_string());
 		} else if value == 0 {
-			return Err(format!("The next state cannot be zero, states are indexed from 1"))
+			return Err("The next state cannot be zero, states are indexed from 1".to_string())
 		}
 		let value = value - 1;
 		return Ok((transition_num,value));
@@ -167,6 +167,17 @@ impl NFA {
 		return Ok(NFA::new(vec![start,end],0,alphabet));
 	}
 
+	pub fn bump_states_append(r1:&mut NFA,r2:&mut NFA, by:StateNum) {
+		for state in &mut r2.states {
+			for t in &mut state.transitions {
+				for i in &mut t.0 {
+					*i = *i + by;
+				}
+			}
+		}
+		r1.states.append(&mut r2.states);
+	}
+
 	pub fn concat(r1:&mut NFA, r2:&mut NFA) -> Result<NFA, String> {
 		if r1.alphabet != r2.alphabet {
 			return Err(format!("Alphabet {:#?} does not match alphabet {:#?}",r1.alphabet,r2.alphabet));
@@ -180,30 +191,14 @@ impl NFA {
 				state.accepting = false;
 			}
 		}
-		
-		for state in &mut r2.states {
-			for t in &mut state.transitions {
-				for i in &mut t.0 {
-					*i = *i + num_states;
-				}
-			}
-		}
-		r1.states.append(&mut r2.states);
+		Self::bump_states_append(r1,r2,num_states);
 		return Ok((*r1).clone());		
 	}
 
 	pub fn or(r1:&mut NFA, r2:&mut NFA) -> Result<NFA, String> {
 		let num_states = r1.states.len();
 		let second_start = r2.starting + num_states;
-		
-		for state in &mut r2.states {
-			for t in &mut state.transitions {
-				for i in &mut t.0 {
-					*i = *i + num_states;
-				}
-			}
-		}
-		r1.states.append(&mut r2.states);
+		Self::bump_states_append(r1,r2,num_states);
 		let mut new_transitions = vec![Ordered(Vec::<StateNum>::new());r1.alphabet.len()+1];
 
 		let mut jumps = vec![r1.starting,second_start];
@@ -237,7 +232,7 @@ impl TryFrom<Vec<String>> for NFA {
 	fn try_from(lines:Vec<String>) -> Result<Self,Self::Error> {
 		let num_lines = lines.len();
 		if num_lines < 3 {
-			return Err(format!("Input file is too short"))
+			return Err("Input file is too short".to_string())
 		}
 		let alphabet:String = match crate::get_alphabet(&lines[0]){
 			Err(e) => return Err(e),
@@ -249,10 +244,10 @@ impl TryFrom<Vec<String>> for NFA {
 				if n <= num_lines - 2 && n>0 {
 					n-1
 				} else {
-					return Err(format!("Starting number is not suitable"))
+					return Err("Starting number is not suitable".to_string())
 				}
 			},
-			Err(_) => return Err(format!("Starting is not a number"))
+			Err(_) => return Err("Starting is not a number".to_string())
 		};
 		let state_lines = &lines[2..];
 		let mut states:Vec<NFAState> = Vec::new();

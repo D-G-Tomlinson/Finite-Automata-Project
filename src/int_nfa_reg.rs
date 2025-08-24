@@ -1,6 +1,7 @@
 use crate::StateNum;
 use crate::regex::RegexTree;
 use crate::regex::Regex;
+use crate::regex::RegexTree::{Empty, Single,KleeneStar,KleenePlus,Optional,Concat,Or};
 use crate::nfa::NFA;
 use crate::nfa::NFAState;
 
@@ -26,17 +27,17 @@ fn bypass_state(table:&mut Vec<Vec<Option<RegexTree>>>,line:StateNum) {
 		if let Some(original) = &table[state][line] {
 			//does go to state we're removing
 			let start:RegexTree = match &self_loop {
-				Some(l) => RegexTree::Concat((Box::new(original.clone()),Box::new(RegexTree::KleeneStar(Box::new(l.clone()))))),
+				Some(l) => Concat((Box::new(original.clone()),Box::new(KleeneStar(Box::new(l.clone()))))),
 				None => original.clone()
 			};
 			for (way,destination) in &leaving {
 				table[state][*destination] = match &table[state][*destination] {
 					None => Some(
-						RegexTree::Concat((Box::new(start.clone()),Box::new((*way).clone())))),
+						Concat((Box::new(start.clone()),Box::new((*way).clone())))),
 					Some(rt) => Some(
-							RegexTree::Or((
+							Or((
 								Box::new(rt.clone()),
-								Box::new(RegexTree::Concat((Box::new(start.clone()),Box::new((*way).clone()))))
+								Box::new(Concat((Box::new(start.clone()),Box::new((*way).clone()))))
 							))
 					)
 				}
@@ -66,7 +67,7 @@ fn get_2d_array(nfa:&NFA) -> Vec<Vec<Option<RegexTree>>> {
 	let size = nfa.states.len() +2;
 
 	let mut new_start:Vec<Option<RegexTree>> = vec![None;size];
-	new_start[nfa.starting]=Some(RegexTree::Empty);
+	new_start[nfa.starting]=Some(Empty);
 
 	let mut result:Vec<Vec<Option<RegexTree>>> = (&nfa.states).into_iter().map(|s| get_1d_array(&s,size)).collect();
 	result.push(new_start);
@@ -76,18 +77,18 @@ fn get_2d_array(nfa:&NFA) -> Vec<Vec<Option<RegexTree>>> {
 fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 	let mut result:Vec<Option<RegexTree>> = vec![None;size];
 	if state.accepting {
-		result[size-1] = Some(RegexTree::Empty);
+		result[size-1] = Some(Empty);
 	}
 	let num_letters = state.transitions.len();
 
 	let letter = 0;
 	for next in &state.transitions[letter].0 {
 		result[*next] = match &result[*next] {
-			None => Some(RegexTree::Empty),
+			None => Some(Empty),
 			Some(rt) => Some(
-				RegexTree::Or((
+				Or((
 					Box::new(rt.clone()),
-					Box::new(RegexTree::Empty)
+					Box::new(Empty)
 				))
 			)
 		};
@@ -98,11 +99,11 @@ fn get_1d_array(state:&NFAState,size:usize) -> Vec<Option<RegexTree>> {
 		let letter_ind = Index1(letter);
 		for next in &state.transitions[letter].0 {
 			result[*next] = match &result[*next] {
-				None => Some(RegexTree::Single(letter_ind.into())),
+				None => Some(Single(letter_ind.into())),
 				Some(rt) => Some(
-					RegexTree::Or((
+					Or((
 						Box::new(rt.clone()),
-						Box::new(RegexTree::Single(letter_ind.into()))
+						Box::new(Single(letter_ind.into()))
 					))
 				)
 			};

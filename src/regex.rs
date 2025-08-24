@@ -90,16 +90,16 @@ fn simplify_regex(mut regex: Regex) -> Regex {//this step isn't strictly necessa
     while changed {
 	changed = false;
 	match regex {
-	    RegexTree::Empty => (),
-	    RegexTree::Single(_) => (), //could put these together at the default case, but this nested match is complicated enough that I want each option addressed explicitly
-	    RegexTree::KleeneStar(br) => {
+	    Empty => (),
+	    Single(_) => (), //could put these together at the default case, but this nested match is complicated enough that I want each option addressed explicitly
+	    KleeneStar(br) => {
 		match *br {
-		    RegexTree::Empty => {
-			input = RegexTree::Empty;
+		    Empty => {
+			input = Empty;
 			changed = true;
 		    },
-		    RegexTree::Single(_) => (),
-		    RegexTree::KleeneStar
+		    Single(_) => (),
+		    KleeneStar
 		    
 		} 
 	    }
@@ -141,61 +141,64 @@ fn get_or(r1:&RegexTree, r2:&RegexTree, alphabet:String) -> Result<NFA,String> {
 	return NFA::or(&mut r1,&mut r2);
 }
 
+type BRT = Box<RegexTree>;
+
+use crate::regex::RegexTree::{Empty, Single,KleeneStar,KleenePlus,Optional,Concat,Or};
 #[derive(Clone,Debug)]
 pub enum RegexTree {
     Empty,
     Single(Index0),
-    KleeneStar(Box<RegexTree>),
-    KleenePlus(Box<RegexTree>),
-    QMark(Box<RegexTree>),
-    Concat((Box<RegexTree>,Box<RegexTree>)),
-    Or((Box<RegexTree>,Box<RegexTree>)),
+    KleeneStar(BRT),
+    KleenePlus(BRT),
+    Optional(BRT),
+    Concat((BRT,BRT)),
+    Or((BRT,BRT)),
 }
 impl RegexTree {
 	pub fn to_nfa(&self,a:String) -> Result<NFA,String> {
 		return match &self {
-			Self::Empty => NFA::get_accept_empty(a),
-			Self::Single(i) => NFA::get_accept_single((*i).into(),a),
-			Self::KleeneStar(r) => get_kstar(&*r, a),
-			Self::KleenePlus(r) => get_concat(&(**r).clone(),&Self::KleeneStar(Box::new((**r).clone())),a),
-			Self::QMark(r) => get_or(&Self::Empty,&**r,a),
-			Self::Concat((r1,r2)) => get_concat(&**r1, &**r2,a),
-			Self::Or((r1, r2)) => get_or(&**r1,&**r2,a)
+			Empty => NFA::get_accept_empty(a),
+			Single(i) => NFA::get_accept_single((*i).into(),a),
+			KleeneStar(r) => get_kstar(&*r, a),
+			KleenePlus(r) => get_concat(&(**r).clone(),&KleeneStar(Box::new((**r).clone())),a),
+			Optional(r) => get_or(&Empty, &**r, a),
+			Concat((r1,r2)) => get_concat(&**r1, &**r2,a),
+			Or((r1, r2)) => get_or(&**r1,&**r2,a)
 		};
 	}
 
 	fn process_brackets(input:&mut Vec<InProgress>) {
 		for start in (0..input.len()).rev() {
-			if let InProgress::Open = input[start] {
+			if let Open = input[start] {
 				let mut sub_bracket:Vec<InProgress> = Vec::new();
 				loop {
 					match input.remove(start+1) {
-						InProgress::Close => break,
+						Close => break,
 						r => sub_bracket.push(r)
 					}
 				}
-				input[start] = InProgress::Reg(Self::from(sub_bracket));
+				input[start] = Reg(Self::from(sub_bracket));
 			}
 		}
 	}
 
 	fn add_unary(input:&mut Vec<InProgress>, i:usize, f:fn(Box<Self>) -> Self) {
 		if i == 0 {
-			input[0] = InProgress::Reg(Self::Empty);
-		} else if let InProgress::Reg(r) = &input[i-1] {
-			input[i-1] = InProgress::Reg(f(Box::new(r.clone())));
+			input[0] = Reg(Empty);
+		} else if let Reg(r) = &input[i-1] {
+			input[i-1] = Reg(f(Box::new(r.clone())));
 			input.remove(i);
 		} else {
-			input[i] = InProgress::Reg(Self::Empty);
+			input[i] = Reg(Empty);
 		}
 	}
 	
 	fn process_unary(input:&mut Vec<InProgress>) {
 		for i in (0..input.len()).rev() {
 			match &input[i] {
-				InProgress::KStar => Self::add_unary(input, i, |r| Self::KleeneStar(r)),
-				InProgress::KPlus => Self::add_unary(input, i, |r| Self::KleenePlus(r)),
-				InProgress::QMark => Self::add_unary(input, i, |r| Self::QMark(r)),
+				Asterisk => Self::add_unary(input, i, |r| KleeneStar(r)),
+				Plus => Self::add_unary(input, i, |r| KleenePlus(r)),
+				QMark => Self::add_unary(input, i, |r| Optional(r)),
 				_ => ()
 			}
 		}
@@ -203,9 +206,9 @@ impl RegexTree {
 
 	fn process_concat(input:&mut Vec<InProgress>) {
 		for i in (1..input.len()).rev() {
-			if let InProgress::Reg(r2) = &input[i] {
-				if let InProgress::Reg(r1) = &input[i-1] {
-					input[i-1] = InProgress::Reg(Self::Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
+			if let Reg(r2) = &input[i] {
+				if let Reg(r1) = &input[i-1] {
+					input[i-1] = Reg(Concat((Box::new(r1.clone()),Box::new(r2.clone()))));
 					input.remove(i);
 				}
 			}
@@ -215,37 +218,37 @@ impl RegexTree {
 	fn process_or(input:&mut Vec<InProgress>) {
 		let mut i = 0;
 		while i < input.len() {
-			if let InProgress::Or = input[i] {
+			if let Pipe = input[i] {
 				let r1;
 				if i == 0 {
-					r1 = Self::Empty;
-				} else if let InProgress::Reg(temp) = &input[i-1] {
+					r1 = Empty;
+				} else if let Reg(temp) = &input[i-1] {
 					r1 = (*temp).clone();
 						input.remove(i);
 					i = i - 1; // so i is still pointing to the Or.
 				} else {
-					r1 = Self::Empty;//this will never be reached, as all other possible InProgress values have been removed
+					r1 = Empty;//this will never be reached, as all other possible InProgress values have been removed
 					}					
 				let r2;
 				if i == input.len() - 1 {
-					r2 = Self::Empty;
-				} else if let InProgress::Reg(temp) = &input[i + 1] {
+					r2 = Empty;
+				} else if let Reg(temp) = &input[i + 1] {
 					r2 = (*temp).clone();
 					input.remove(i + 1);
 				} else {
-						r2 = Self::Empty;// this could be another Or though
+						r2 = Empty;// this could be another Or though
 				}
 				let new_val = match r1 {
-					Self::Empty => match r2 {
-						Self::Empty => Self::Empty,
-						r => Self::QMark(Box::new(r))
+					Empty => match r2 {
+						Empty => Empty,
+						r => Optional(Box::new(r))
 					},
 					r1 => match r2 {
-						Self::Empty => Self::QMark(Box::new(r1)),
-							r2 => Self::Or((Box::new(r1),Box::new(r2)))
+						Empty => Optional(Box::new(r1)),
+							r2 => Or((Box::new(r1),Box::new(r2)))
 					}
 				};
-				input[i] = InProgress::Reg(new_val);
+				input[i] = Reg(new_val);
 			}
 			i = i + 1;
 		}
@@ -256,9 +259,9 @@ impl RegexTree {
 		//need brackets around ors or concats
 
 		match child {
-			Self::Empty => return String::new(),
-			Self::Single(_)|Self::KleeneStar(_)|Self::KleenePlus(_)|Self::QMark(_) => result.push_str(&child.to_string(alphabet)),
-			Self::Concat(_)|Self::Or(_) => {
+			Empty => return String::new(),
+			Single(_)|KleeneStar(_)|KleenePlus(_)|Optional(_) => result.push_str(&child.to_string(alphabet)),
+			Concat(_)|Or(_) => {
 				result.push('(');
 				result.push_str(&child.to_string(alphabet));
 				result.push(')');
@@ -270,14 +273,14 @@ impl RegexTree {
 
 	fn concat_to_string(r1:&Self,r2:&Self,alphabet:&Vec<char>) -> String{
 		let mut s1 = match r1 {
-			Self::Or(_) => {
+			Or(_) => {
 				format!("({})",r1.to_string(alphabet))
 			},
 			_ => r1.to_string(alphabet)
 		};
 
 		let s2 = match r2 {
-			Self::Or(_) => {
+			Or(_) => {
 				format!("({})",r2.to_string(alphabet))
 			},
 			_ => r2.to_string(alphabet)
@@ -288,13 +291,13 @@ impl RegexTree {
 	
 	pub fn to_string(&self, alphabet:&Vec<char>) -> String {
 		return match &self {
-			Self::Empty => String::new(),
-			Self::Single(i) => alphabet[(*i).0].to_string(),
-			Self::KleeneStar(r) => Self::opp_to_string('*',&**r,alphabet),
-			Self::KleenePlus(r) => Self::opp_to_string('+',&**r,alphabet),
-			Self::QMark(r) => Self::opp_to_string('?',&**r,alphabet),
-			Self::Concat((r1,r2)) => Self::concat_to_string(&**r1,&**r2,alphabet),
-			Self::Or((r1,r2)) => format!("{}|{}",r1.to_string(alphabet),r2.to_string(alphabet)),
+			Empty => String::new(),
+			Single(i) => alphabet[(*i).0].to_string(),
+			KleeneStar(r) => Self::opp_to_string('*',&**r,alphabet),
+			KleenePlus(r) => Self::opp_to_string('+',&**r,alphabet),
+			Optional(r) => Self::opp_to_string('?', &**r, alphabet),
+			Concat((r1,r2)) => Self::concat_to_string(&**r1,&**r2,alphabet),
+			Or((r1,r2)) => format!("{}|{}",r1.to_string(alphabet),r2.to_string(alphabet)),
 		}
 	}
 }
@@ -303,12 +306,12 @@ impl From<Vec<InProgress>> for RegexTree {
 
 	fn from(input:Vec<InProgress>) -> Self {
 		if input.len() == 0 {
-			return Self::Empty;
+			return Empty;
 		}
 		if input.len() == 1 {
 			return match &input[0] {
-				InProgress::Reg(r) => r.clone(),
-				_ => Self::Empty//due to earlier checks, we know brackets match, so do not need to consider them here, and a single unary operator, or | on its own is equivalent to empty
+				Reg(r) => r.clone(),
+				_ => Empty//due to earlier checks, we know brackets match, so do not need to consider them here, and a single unary operator, or | on its own is equivalent to empty
 			};
 		}
 		let mut input = input.clone();
@@ -320,35 +323,36 @@ impl From<Vec<InProgress>> for RegexTree {
 		Self::process_concat(&mut input);
 		//now just to deal with the Ors
 		Self::process_or(&mut input);
-		return if let InProgress::Reg(r) = &input[0] {
+		return if let Reg(r) = &input[0] {
 			r.clone()
 		} else {
-			Self::Empty //can't be reached due to earlier code
+			Empty //can't be reached due to earlier code
 		}
 	}
 
 }
 
+use crate::regex::InProgress::{Reg,Asterisk,Plus,QMark,Pipe,Open,Close};
 #[derive(Clone,Debug)]
 enum InProgress {
     Reg(RegexTree),
-    KStar,
-    KPlus,
+	Asterisk,
+	Plus,
     QMark,
-    Or,
+	Pipe,
     Open,
     Close
 }
 impl InProgress {
 	fn from_char(c:char, hm:&HashMap<char,Index0>) -> InProgress {
 		match c {
-			'*' => InProgress::KStar,
-			'+' => InProgress::KPlus,
-			'?' => InProgress::QMark,
-			'|' => InProgress::Or,
-			'(' => InProgress::Open,
-			')' => InProgress::Close,
-			other => InProgress::Reg(RegexTree::Single(hm[&other]))
+			'*' => Asterisk,
+			'+' => Plus,
+			'?' => QMark,
+			'|' => Pipe,
+			'(' => Open,
+			')' => Close,
+			other => Reg(Single(hm[&other]))
 		}    
 	}
 	
